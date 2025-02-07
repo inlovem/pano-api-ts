@@ -1,0 +1,55 @@
+{
+  "name": "pano-api-ts",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs"
+    },
+    "./src": {
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "build": "tsc && prisma generate --schema src/prisma/schema.prisma",
+    "dev-migrate:init": "prisma migrate dev --name init --schema src/prisma/schema.prisma",
+    "dev-migrate:optional": "prisma migrate dev --schema src/prisma/schema.prisma",
+    "generate": "prisma generate --schema src/prisma/schema.prisma",
+    "start": "node dist/index.js",
+    "pkg": "pkg . --out-path dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.10",
+    "nodemon": "^3.1.9",
+    "prisma": "^6.2.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/jwt": "^9.0.3",
+    "@fastify/type-provider-typebox": "^5.1.0",
+    "@prisma/client": "^6.2.1",
+    "@sinclair/typebox": "^0.34.15",
+    "@types/jsonwebtoken": "^9.0.8",
+    "@types/pg": "^8.11.11",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "jose": "^5.9.6",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0",
+    "node-jose": "^2.2.0",
+    "openai": "^4.80.1",
+    "pg": "^8.13.1",
+    "pkg": "^5.8.1",
+    "uuid": "^11.0.5"
+  }
+}

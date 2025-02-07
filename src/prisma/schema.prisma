@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Transaction {
+ id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+ userId    String   @map("user_id")
+ createdAt DateTime @map("created_at")
+ updatedAt DateTime @map("updated_at")
+ items     TransactionItem[]
+
+ @@map("transaction")
+}
+
+model TransactionItem {
+ id            String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+ transactionId String      @map("transaction_id") @db.Uuid
+ giftableId    String      @map("giftable_id") @db.Uuid
+ giftableType  String      @map("giftable_type")
+ transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+ @@map("transaction_item")
+}
+
+model Photo {
+ id          String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+ s3Key       String?       @map("s3_key")
+ createdAt   DateTime      @map("created_at")
+ updatedAt   DateTime      @map("updated_at")
+ postcards   Postcard[]
+ conversations Conversation[]
+
+ @@map("photo")
+}
+
+model Postcard {
+ id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+ isLandscape Boolean  @map("is_landscape")
+ photoId     String   @map("photo_id") @db.Uuid
+ s3Key       String?  @map("s3_key")
+ updatedAt   DateTime @map("updated_at")
+ photo       Photo    @relation(fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+ @@map("postcard")
+}
+
+model Recording {
+ id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+ recordableId   String   @map("recordable_id") @db.Uuid
+ recordableType String   @map("recordable_type")
+ s3Key          String?  @map("s3_key")
+ transcript     String?
+ createdAt      DateTime @map("created_at")
+ updatedAt      DateTime @map("updated_at")
+
+ @@map("recording")
+}
+
+model Recipient {
+ id String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+ giftableRecipients GiftableRecipient[]
+
+ @@map("recipient")
+}
+
+model GiftableRecipient {
+  giftableId   String    @map("giftable_id") @db.Uuid
+  giftableType String    @map("giftable_type")
+  recipientId  String    @map("recipient_id") @db.Uuid
+  recipient    Recipient @relation(fields: [recipientId], references: [id])
+
+  @@id([giftableId, giftableType, recipientId])
+  @@map("giftable_recipient")
+}
+
+
+model Conversation {
+ id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+ photoId   String   @map("photo_id") @db.Uuid
+ threadId  String?  @map("thread_id")
+ createdAt DateTime @map("created_at")
+ photo     Photo    @relation(fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+ messages  ConversationMessage[]
+
+ @@map("conversation")
+}
+
+model ConversationMessage {
+ id            String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+ conversationId String      @map("conversation_id") @db.Uuid
+ userId        String       @map("user_id")
+ text          String       @db.Text
+ parent        String?      @db.Uuid
+ s3Key         String?      @map("s3_key")
+ createdAt     DateTime     @map("created_at")
+ updatedAt     DateTime     @map("updated_at")
+ conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+ @@map("conversation_message")
+}
