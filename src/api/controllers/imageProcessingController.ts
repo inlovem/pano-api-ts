@@ -1,6 +1,9 @@
 // src/api/controllers/imageProcessingController.ts
+
 import { FastifyRequest, FastifyReply } from 'fastify';
 import OpenAI from 'openai';
+import { InteractionService } from '../services/interaction.service';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Request body for generating an image description.
@@ -21,35 +24,42 @@ interface ImageConversationRequestBody {
 }
 
 /**
+ * Query parameters for the image description controller.
+ */
+interface ImageDescriptionQuery {
+    uid: string; // The user's UID
+}
+
+/**
  * Controller for generating a high-detail image description.
  *
  * This controller accepts an uploaded image file, converts it into a data URL,
- * sends it to OpenAI with a multimodal prompt (text + image URL), and returns the
- * generated description.
+ * sends it to OpenAI with a multimodal prompt (text + image URL), and returns
+ * the generated description.
  *
- * Note: This function assumes that the Fastify multipart plugin is registered.
+ * Note: Assumes that the Fastify multipart plugin is registered.
  */
 export async function generateImageDescriptionController(
-    request: FastifyRequest,
+    request: FastifyRequest<{ Querystring: ImageDescriptionQuery }>,
     reply: FastifyReply
 ) {
     try {
-        // Use a type assertion to access the file() method (provided by fastify-multipart)
+        // 1) Retrieve userUid from the query string (?uid=...).
+        const userUid = request.query.uid || 'unknown-uid';
+
+        // 2) Access the uploaded file using fastify-multipart
         const data = await (request as any).file();
         if (!data) {
             return reply.status(400).send({ message: 'File is required.' });
         }
 
         /**
-         * Helper function to convert a stream to a Buffer.
-         * @param stream - The file stream from the upload.
-         * @returns A Promise that resolves to a Buffer containing the file data.
+         * Helper function to convert a file stream to a Buffer.
          */
         async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
             const chunks: Buffer[] = [];
             return new Promise((resolve, reject) => {
                 stream.on('data', (chunk) => {
-                    // Ensure chunk is a Buffer (convert if it's a string)
                     chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
                 });
                 stream.on('end', () => resolve(Buffer.concat(chunks)));
@@ -57,27 +67,23 @@ export async function generateImageDescriptionController(
             });
         }
 
-        // Read the uploaded file stream into a Buffer.
+        // 3) Read the uploaded file stream into a Buffer.
         const fileBuffer = await streamToBuffer(data.file);
 
-        // Convert the Buffer into a base64-encoded string.
+        // 4) Convert Buffer into a base64-encoded string for the OpenAI prompt
+        //    (We do NOT store this base64 data in DB).
         const base64Image = fileBuffer.toString('base64');
-
-        // Construct a data URL using the file's MIME type.
-        // For example: data:image/jpeg;base64,.....
         const dataUrl = `data:${data.mimetype};base64,${base64Image}`;
 
-        // Initialize the OpenAI client.
+        // 5) Initialize OpenAI and call the Chat API
         const openai = new OpenAI();
-
-        // Call the OpenAI Chat API with a multimodal prompt that includes the data URL.
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [
                 {
                     role: 'user',
                     content: [
-                        { type: 'text', text: "Provide a high context description of the image?" },
+                        { type: 'text', text: 'Provide a high context description of the image?' },
                         { type: 'image_url', image_url: { url: dataUrl } },
                     ],
                 },
@@ -85,14 +91,44 @@ export async function generateImageDescriptionController(
             store: true,
         });
 
-        // Ensure that the API returned a valid response.
         if (!response.choices || response.choices.length === 0) {
             return reply.status(500).send({ message: 'No description was generated.' });
         }
 
-        // Extract the generated image description from the response.
-        const imageDescription = response.choices[0].message.content;
-        return reply.status(200).send({ imageDescription });
+        // 6) Extract the generated image description
+        const imageDescription = response.choices[0].message.content ?? 'No description available';
+        const interactionId = uuidv4();
+
+        // 7) Build an Interaction object for saving
+        const interaction = {
+            id: interactionId,
+            fileUrl: '', // We'll set it after uploading to Firebase Storage
+            uploadedBy: {
+                uid: userUid,
+                email: 'unknown@example.com',
+            },
+            timestamp: new Date().toISOString(),
+            conversationData: {
+                userMessage: 'Provide a high context description of the image?',
+                responseMessage: imageDescription,
+            },
+            sharedWith: [],
+            audioFiles: [],
+        };
+
+        // 8) Upload the file to Firebase Storage + save interaction to Realtime DB
+        const savedInteraction = await InteractionService.uploadFileAndSaveInteraction(
+            userUid,
+            fileBuffer,
+            data.mimetype,
+            interaction
+        );
+
+        // 9) Return the final output
+        return reply.status(200).send({
+            imageDescription,
+            storedFileUrl: savedInteraction.fileUrl,
+        });
     } catch (error: any) {
         return reply.status(500).send({
             message: 'Error generating image description',
@@ -124,12 +160,8 @@ export async function imageConversationController(
     question = question.replace(/[\r\n]+/g, ' ').trim();
 
     try {
-        // Initialize the OpenAI client.
+        // 1) Call OpenAI to generate a conversation answer
         const openai = new OpenAI();
-
-        // Build the conversation context:
-        // 1. A system message with the image description.
-        // 2. A user message with the follow-up question.
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [
@@ -151,9 +183,33 @@ export async function imageConversationController(
             });
         }
 
-        // Extract the assistant's reply from the response.
-        const answer = response.choices[0].message.content;
+        // 2) Extract the assistant's reply
+        const answer = response.choices[0].message.content ?? 'No description available';
 
+        // 3) Retrieve the userUid from headers (or fallback)
+        const userUid = (request.headers['x-user-uid'] as string) || 'unknown-uid';
+        const interactionId = uuidv4();
+
+        // 4) Save a new Interaction record (no file upload here)
+        const interaction = {
+            id: interactionId,
+            fileUrl: '',
+            uploadedBy: {
+                uid: userUid,
+                email: 'unknown@example.com',
+            },
+            timestamp: new Date().toISOString(),
+            conversationData: {
+                userMessage: question,
+                responseMessage: answer,
+            },
+            sharedWith: [],
+            audioFiles: [],
+        };
+
+        await InteractionService.saveInteraction(userUid, interaction);
+
+        // 5) Return the conversation result
         return reply.status(200).send({ answer });
     } catch (error: any) {
         return reply.status(500).send({

@@ -1,109 +1,40 @@
-// src/api/services/authService.ts
+import admin from '../config/firebase';  // or correct relative path
+import { User } from '../schemas/user';
 
-import admin from 'firebase-admin';
-import axios from 'axios';
-import {
-  CreateUserInput,
-  LoginUserInput,
-  UpdateProfileInput,
-  SocialLoginInput,
-} from '../types/interfaces';
+const db = admin.database();
+const usersByUid: Record<string, User> = {};
 
 /**
- * Registers a new user in Firebase Authentication.
+ * AuthService for managing user records in Realtime DB and in memory.
  */
-export async function registerUser(input: CreateUserInput) {
-  const { email, password } = input;
-  try {
-    return await admin.auth().createUser({
-      email,
-      password,
-    });
-  } catch (error) {
-    throw error;
-  }
-}  
+export const AuthService = {
+    async createUser(uid: string, user: User): Promise<User> {
+        if (usersByUid[uid]) {
+            return usersByUid[uid];
+        }
 
+        await db.ref(`users/${uid}`).set(user);
+        usersByUid[uid] = user;
+        return user;
+    },
 
-/**
- * Logs in a user with email and password using Firebase's REST API.
- * Ensure that FIREBASE_API_KEY is set in your environment variables.
- */
-export async function loginUser(input: LoginUserInput) {
-  const { email, password } = input;
-  const API_KEY = process.env.FIREBASE_API_KEY;
-  if (!API_KEY) {
-    throw new Error('FIREBASE_API_KEY is not defined in environment variables.');
-  }
+    async getUserByUid(uid: string): Promise<User | null> {
+        if (usersByUid[uid]) {
+            return usersByUid[uid];
+        }
 
-  const url = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`;
+        const snapshot = await db.ref(`users/${uid}`).once('value');
+        if (!snapshot.exists()) {
+            return null;
+        }
 
-  try {
-    const response = await axios.post(url, {
-      email,
-      password,
-      returnSecureToken: true,
-    });
-    return response.data;
-  } catch (error: any) {
-    if (error.response && error.response.data && error.response.data.error) {
-      throw new Error(error.response.data.error.message);
-    }
-    throw error;
-  }
-}
+        const user = snapshot.val() as User;
+        usersByUid[uid] = user;
+        return user;
+    },
 
-/**
- * Updates a user's profile information.
- */
-export async function updateUserProfile(input: UpdateProfileInput) {
-  const { uid, displayName, photoURL } = input;
-  try {
-    return await admin.auth().updateUser(uid, {
-      displayName,
-      photoURL,
-    });
-  } catch (error) {
-    throw error;
-  }
-}
-
-/**
- * Logs in a user using a social provider (Google, Apple, Facebook) via Firebase's Identity Toolkit.
- */
-export async function loginWithSocial(input: SocialLoginInput) {
-  const { token, providerId } = input;
-  const API_KEY = process.env.FIREBASE_API_KEY;
-  if (!API_KEY) {
-    throw new Error('FIREBASE_API_KEY is not defined in environment variables.');
-  }
-
-  const url = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${API_KEY}`;
-  const encodedToken = encodeURIComponent(token);
-
-  let postBody = '';
-  if (providerId === 'google.com' || providerId === 'apple.com') {
-    postBody = `id_token=${encodedToken}&providerId=${providerId}`;
-  } else if (providerId === 'facebook.com') {
-    postBody = `access_token=${encodedToken}&providerId=${providerId}`;
-  } else {
-    throw new Error('Unsupported provider');
-  }
-
-  const payload = {
-    postBody,
-    requestUri: 'http://localhost', // Can be any valid URL.
-    returnSecureToken: true,
-    returnIdpCredential: true,
-  };
-
-  try {
-    const response = await axios.post(url, payload);
-    return response.data;
-  } catch (error: any) {
-    if (error.response && error.response.data && error.response.data.error) {
-      throw new Error(error.response.data.error.message);
-    }
-    throw error;
-  }
-}
+    async authenticate(uid: string): Promise<boolean> {
+        const user = await this.getUserByUid(uid);
+        return user !== null;
+    },
+};

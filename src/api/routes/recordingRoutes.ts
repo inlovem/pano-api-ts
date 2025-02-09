@@ -1,18 +1,10 @@
+// src/api/routes/recordingRoutes.ts
 import { FastifyInstance } from 'fastify';
-import { updateRecordingController } from '../controllers/recordingController';
-import { UpdateRecordingSchema } from '../schemas/recordingSchema';
-import { authenticateUser } from '../utils/authUser';
-
+import {getRecordingController, uploadRecordingController} from '../controllers/recordingController';
 
 async function recordingRoutes(fastify: FastifyInstance) {
-
-    fastify.route({
-        method: 'PATCH',
-        url: '/recording/:recordingId',
-        schema: UpdateRecordingSchema,
-        preHandler: [authenticateUser],
-        handler: updateRecordingController
-    });
+    fastify.post('/recording/upload', uploadRecordingController);
+    fastify.get('/recording/get', getRecordingController);
 }
 
 export default recordingRoutes;
