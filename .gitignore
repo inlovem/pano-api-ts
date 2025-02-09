@@ -1,6 +1,9 @@
 .idea/
 .idea
 node_modules/
+/node_modules
 public/
 serviceAccountKey.json
 .env
+dist
+/dist
