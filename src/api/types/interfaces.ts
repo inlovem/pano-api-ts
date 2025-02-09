@@ -39,3 +39,15 @@ export interface UpdateProfileRequestBody {
 export interface SocialLoginRequestBody {
     token: string;
 }
+
+export interface IUser {
+  isSuperuser?: boolean;
+  uid?: string;
+}
+
+export interface IRecording {
+  toJSONAPIResourceObject: any;
+  id: string;
+  s3Key?: string;
+  transcript?: string;
+}
