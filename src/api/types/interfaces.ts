@@ -45,9 +45,45 @@ export interface IUser {
   uid?: string;
 }
 
+export interface IUpdateRecordingBody {
+    data: {
+      id: string;
+      type: 'recording';
+      attributes?: {
+        [key: string]: any; // e.g., { title: string; description: string; }
+      };
+    };
+  }
+  
+export interface IUpdateRecordingParams {
+    recordingId: string;
+  }
+
 export interface IRecording {
   toJSONAPIResourceObject: any;
   id: string;
   s3Key?: string;
   transcript?: string;
+}
+
+export interface IPostcard {
+    id?: string;        
+    userId?: string;   
+    recipientId?: string;
+    s3Key?: string;
+    transcript?: string;
+  }
+  
+
+export interface IUpdatePostCardBody {
+    data: {
+        id: string;
+        type: 'postCard';
+        attributes?: {
+            [key: string]: any;
+        };
+    };
+}
+export interface IUpdatePostCardParams {
+    postCardId: string;
 }

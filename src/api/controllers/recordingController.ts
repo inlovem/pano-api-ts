@@ -2,21 +2,7 @@
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import * as service from '../services/recordingService';
-import { IUser } from '../types/interfaces';
-
-interface IUpdateRecordingBody {
-  data: {
-    id: string;
-    type: 'recording';
-    attributes?: {
-      [key: string]: any; // e.g., { title: string; description: string; }
-    };
-  };
-}
-
-interface IUpdateRecordingParams {
-  recordingId: string;
-}
+import { IUser, IUpdateRecordingParams, IUpdateRecordingBody } from '../types/interfaces';
 
 /**
  * Controller for updating a user recording.
@@ -40,9 +26,11 @@ export async function updateRecordingController(
   }>,
   reply: FastifyReply
 ) {
-  const { recordingId } = request.params;
-  const { data } = request.body;
-  const { id, type, attributes = {} } = data || {};
+    const { recordingId } = request.params;
+    const { data } = request.body;
+    const { id, type, attributes = {} } = data || {};
+    const uid = request.user.uid as string;
+
 
   if (type !== 'recording' || String(id) !== String(recordingId)) {
     return reply.status(409).send({
@@ -51,12 +39,12 @@ export async function updateRecordingController(
     });
   }
 
+  
   try {
     const recording = await service.updateUserRecording(
-    // get user from auth?
-      request.user as IUser,
-      { id: recordingId }, 
-      attributes
+        uid, 
+        { id: recordingId }, 
+        attributes
     );
 
     if (recording && typeof recording.toJSONAPIResourceObject === 'function') {
