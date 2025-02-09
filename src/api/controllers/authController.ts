@@ -7,16 +7,15 @@ import {
     updateUserProfile,
     loginWithSocial
 } from '../services/authService';
+import { LoginRequestBody, RegisterRequestBody, UpdateProfileRequestBody, SocialLoginRequestBody } from '../types/interfaces';
+import * as schema from '../schemas/userSchema';
 import admin from 'firebase-admin';
 
-interface RegisterRequestBody {
-    email: string;
-    password: string;
-}
+
 
 /**
  * Controller for registering a new user.
- */
+    */
 export async function registerController(
     request: FastifyRequest<{ Body: RegisterRequestBody }>,
     reply: FastifyReply
@@ -31,11 +30,6 @@ export async function registerController(
     } catch (error: any) {
         return reply.status(500).send({ message: 'Error registering user', error: error.message || error });
     }
-}
-
-interface LoginRequestBody {
-    email: string;
-    password: string;
 }
 
 /**
@@ -55,11 +49,6 @@ export async function loginController(
     } catch (error: any) {
         return reply.status(500).send({ message: 'Error logging in user', error: error.message || error });
     }
-}
-
-interface UpdateProfileRequestBody {
-    displayName?: string;
-    photoURL?: string;
 }
 
 /**
@@ -97,16 +86,14 @@ export async function updateProfileController(
     }
 }
 
-interface SocialLoginRequestBody {
-    token: string;
-}
+
 
 /**
  * Controller for social login using Google.
  */
 export async function googleLoginController(
     request: FastifyRequest<{ Body: SocialLoginRequestBody }>,
-    reply: FastifyReply
+    reply: FastifyReply,
 ) {
     const { token } = request.body;
     if (!token) {
