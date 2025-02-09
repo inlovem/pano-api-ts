@@ -29,7 +29,7 @@ export async function updateRecordingController(
     const { recordingId } = request.params;
     const { data } = request.body;
     const { id, type, attributes = {} } = data || {};
-    const uid = request.user.uid as string;
+    const userId = (request as any).user.user_id;
 
 
   if (type !== 'recording' || String(id) !== String(recordingId)) {
@@ -42,7 +42,7 @@ export async function updateRecordingController(
   
   try {
     const recording = await service.updateUserRecording(
-        uid, 
+        userId,
         { id: recordingId }, 
         attributes
     );

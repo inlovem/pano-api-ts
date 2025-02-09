@@ -1,7 +1,10 @@
 
 import { FastifyReply, FastifyRequest } from 'fastify';
 import admin from 'firebase-admin';
+import jwt from 'jsonwebtoken';
 
+
+const SECRET_KEY = process.env.JWT_SECRET || "your_secret_key";
 /**
  *
  * Expects an Authorization header with a Bearer token.
@@ -9,14 +12,20 @@ import admin from 'firebase-admin';
 export async function authenticateUser(request: FastifyRequest, reply: FastifyReply) {
   const authHeader = request.headers.authorization;
 
-  if (!authHeader) {
-    return reply.status(401).send({ message: 'Authorization header missing' });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    reply
+      .code(401)
+      .send({ error: "Missing or invalid Authorization header" });
+    return;
   }
 
   const token = authHeader.split(' ')[1];
+  const user = await verifyToken(token);
   if (!token) {
     return reply.status(401).send({ message: 'Token missing' });
   }
+
+  (request as any).user = user;
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
@@ -28,3 +37,30 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
     });
   }
 }
+
+
+
+
+
+
+/**
+ * Verifies the JWT token.
+ * @param token The JWT token to verify.
+ * @returns The decoded user information if the token is valid.
+ * @throws If the token is invalid or missing.
+ */
+const verifyToken = (token: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, SECRET_KEY, (err: any, decoded: any) => {
+      if (err) {
+        reject(err); // Token verification failed
+      } else {
+        const payload = decoded as any;
+        resolve({
+          id: payload.id,
+          email: payload.email,
+        });
+      }
+    });
+  });
+};
