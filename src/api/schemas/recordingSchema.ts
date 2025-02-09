@@ -4,7 +4,7 @@ import {
   ERROR400,
   ERROR401,
   ERROR500,
-} from "../constants/constants.js";
+} from "../constants/constants";
 
 /**
  * This schema matches the shape your controller expects:

@@ -1,6 +1,6 @@
 
 import { FastifyReply, FastifyRequest } from 'fastify';
-import admin from 'firebase-admin';
+import admin from '../config/firebase';
 import jwt from 'jsonwebtoken';
 
 

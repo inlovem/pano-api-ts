@@ -1,6 +1,6 @@
 // src/api/services/authService.ts
 
-import admin from 'firebase-admin';
+import admin from '../config/firebase';
 import axios from 'axios';
 import {
   CreateUserInput,

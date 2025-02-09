@@ -16,7 +16,7 @@ export async function updatePostCardController(
     const { postCardId } = request.params;
     const { data } = request.body;
     const { id, type, attributes = {} } = data;
-    const uid = request.user.uid as string;
+    const { uid } = (request as any).user;
     
     if (type !== 'postCard' || String(id) !== String(postCardId)) {
       return reply.status(409).send({

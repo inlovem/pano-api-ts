@@ -1,6 +1,6 @@
 // src/services/imageService.ts
 
-import admin from 'firebase-admin';
+import admin from '../config/firebase';
 
 // Ensure Firebase Admin is initialized somewhere in your project
 // For example, in your main server file:

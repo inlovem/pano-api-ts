@@ -1,6 +1,6 @@
 // src/services/recordingService.ts
 
-import admin from 'firebase-admin';
+import admin from '../config/firebase';
 import { IUser, IRecording } from '../types/interfaces';
 const db = admin.database();
 

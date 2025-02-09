@@ -4,7 +4,7 @@ import { updatePostCardController} from '../controllers/postCardController';
 import { UpdatePostCardSchema } from '../schemas/postCardSchema';
 
 
-async function postCardRoutes(fastify: FastifyInstance) {
+async function PostcardRoutes(fastify: FastifyInstance) {
     fastify.route({  
         method: 'PATCH',
         url: '/postcard/:postcardId',
@@ -13,5 +13,5 @@ async function postCardRoutes(fastify: FastifyInstance) {
         handler: updatePostCardController
     });
 }
-export default postCardRoutes;
+export default PostcardRoutes;
 

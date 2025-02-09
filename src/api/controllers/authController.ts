@@ -9,7 +9,7 @@ import {
 } from '../services/authService';
 import { LoginRequestBody, RegisterRequestBody, UpdateProfileRequestBody, SocialLoginRequestBody } from '../types/interfaces';
 import * as schema from '../schemas/userSchema';
-import admin from 'firebase-admin';
+import admin from '../config/firebase';
 
 
 

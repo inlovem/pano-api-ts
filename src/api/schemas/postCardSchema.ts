@@ -2,7 +2,7 @@
 
 import { Type } from "@sinclair/typebox";
 import { FastifySchema } from "fastify";
-import { ERROR400, ERROR401, ERROR500 } from "../constants/constants.js";
+import { ERROR400, ERROR401, ERROR500 } from "../constants/constants";
 
 /**
  * Schema for updating a postcard.

@@ -6,7 +6,7 @@ import {
   ERROR400,
   ERROR401,
   ERROR500,
-} from "../constants/constants.js";
+} from "../constants/constants";
 
 /**
  * Request body schemas based on your interfaces.

@@ -1,6 +1,6 @@
 // src/services/postcardService.ts
 
-import admin from 'firebase-admin';
+import admin from '../config/firebase';
 import { IPostcard } from '../types/interfaces';
 
 const db = admin.database();

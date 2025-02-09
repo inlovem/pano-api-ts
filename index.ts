@@ -2,22 +2,19 @@
 
 import fastify from 'fastify';
 import cors from '@fastify/cors'; // Import the CORS plugin
-import admin from 'firebase-admin';
 import multipart from '@fastify/multipart';
 import authRoutes from './src/api/routes/authRoutes';
 import imageProcessingRoutes from "./src/api/routes/imageProcessingRoutes";
 import serviceAccount from "./serviceAccountKey.json"; // Adjust the path as needed
 import dotenv from 'dotenv';
-import postCardRoutes from 'src/api/routes/postcardRoutes';
-import recordingRoutes from 'src/api/routes/recordingRoutes';
+import PostCardRoutes from './src/api/routes/postCardRoutes';
+import recordingRoutes from './src/api/routes/recordingRoutes';
 
 // Load environment variables
 dotenv.config();
 
 // Initialize Firebase Admin SDK
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
-});
+
 
 const server = fastify({ logger: true });
 
@@ -26,10 +23,11 @@ server.register(cors, {
     origin: '*', // In production, consider restricting the origin(s)
 });
 
+
 // Register authentication routes
 server.register(multipart);
 server.register(authRoutes);
-server.register(postCardRoutes);
+server.register(PostCardRoutes);
 server.register(recordingRoutes); 
 server.register(imageProcessingRoutes);
 
