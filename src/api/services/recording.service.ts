@@ -1,5 +1,3 @@
-// src/services/recording.service.ts
-
 import admin from 'firebase-admin';
 import { v4 as uuidv4 } from 'uuid';
 import { Interaction } from '../schemas/interaction';
@@ -17,7 +15,6 @@ export const RecordingService = {
         fileBuffer: Buffer,
         mimeType: string
     ): Promise<Interaction> {
-
         // 1) Retrieve the existing Interaction (memory)
         const db = admin.database();
         const interactionRef = db.ref(`interactions/${userUid}/${interactionId}`);
@@ -53,5 +50,21 @@ export const RecordingService = {
         await interactionRef.set(interaction);
 
         return interaction;
+    },
+
+    /**
+     * Fetch an existing interaction (memory) by userUid and interactionId,
+     * returning the entire Interaction object (including audioFiles).
+     */
+    async fetchInteraction(userUid: string, interactionId: string): Promise<Interaction> {
+        const db = admin.database();
+        const ref = db.ref(`interactions/${userUid}/${interactionId}`);
+        const snapshot = await ref.once('value');
+
+        if (!snapshot.exists()) {
+            throw new Error(`No interaction found for userUid=${userUid} and interactionId=${interactionId}`);
+        }
+
+        return snapshot.val() as Interaction;
     }
 };
