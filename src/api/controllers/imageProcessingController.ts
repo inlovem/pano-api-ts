@@ -5,9 +5,10 @@ import OpenAI from 'openai';
  * Request body for generating an image description.
  */
 interface ImageDescriptionRequestBody {
-  // A publicly accessible image URL.
-  image_url: string;
-}
+    // A base64-encoded image string (e.g., "data:image/png;base64,....")
+    image_base64: string;
+  }
+  
 
 /**
  * Request body for the conversational route.
@@ -26,56 +27,74 @@ interface ImageConversationRequestBody {
  * and returns the generated description.
  */
 export async function generateImageDescriptionController(
-  request: FastifyRequest<{ Body: ImageDescriptionRequestBody }>,
-  reply: FastifyReply
-) {
-  const { image_url } = request.body;
-
-  if (!image_url) {
-    return reply.status(400).send({ message: 'The "image_url" field is required.' });
-  }
-
-  try {
-    // Initialize the OpenAI client.
-    const openai = new OpenAI();
-
-    // Call the OpenAI Chat API with a multimodal prompt.
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: "Provide a high context description of the image?" },
-            {
-              type: 'image_url',
-              image_url: {
-                url: image_url,
-                detail: 'high', // Request a high-detail description.
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      // Get the uploaded file (the field name is assumed to be "file")
+      const data = await request.file();
+      if (!data) {
+        return reply.status(400).send({ message: 'File is required.' });
+      }
+  
+      // Helper function to convert a stream to a Buffer.
+      async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+        const chunks: Buffer[] = [];
+        return new Promise((resolve, reject) => {
+          stream.on('data', (chunk) => {
+            chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+          });
+          stream.on('end', () => resolve(Buffer.concat(chunks)));
+          stream.on('error', reject);
+        });
+      }
+  
+      // Read the file stream into a Buffer.
+      const fileBuffer = await streamToBuffer(data.file);
+  
+      // Convert the Buffer to a base64-encoded string.
+      const base64Image = fileBuffer.toString('base64');
+  
+      // Construct a data URL using the file's MIME type.
+      // Example: data:image/jpeg;base64,.....
+      const dataUrl = `data:${data.mimetype};base64,${base64Image}`;
+  
+      // Initialize the OpenAI client.
+      const openai = new OpenAI();
+  
+      // Call the OpenAI Chat API with a multimodal prompt that uses the data URL.
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: "Provide a high context description of the image?" },
+              {
+                type: 'image_url',
+                image_url: { url: dataUrl },
               },
-            },
-          ],
-        },
-      ],
-      store: true,
-    });
-
-    // Ensure we have a valid response.
-    if (!response.choices || response.choices.length === 0) {
-      return reply.status(500).send({ message: 'No description was generated.' });
+            ],
+          },
+        ],
+        store: true,
+      });
+  
+      // Ensure we have a valid response.
+      if (!response.choices || response.choices.length === 0) {
+        return reply.status(500).send({ message: 'No description was generated.' });
+      }
+  
+      // Extract the generated image description.
+      const imageDescription = response.choices[0].message.content;
+      return reply.status(200).send({ imageDescription });
+    } catch (error: any) {
+      return reply.status(500).send({
+        message: 'Error generating image description',
+        error: error.message || error,
+      });
     }
-
-    // Extract the generated image description.
-    const imageDescription = response.choices[0].message.content;
-
-    return reply.status(200).send({ imageDescription });
-  } catch (error: any) {
-    return reply.status(500).send({
-      message: 'Error generating image description',
-      error: error.message || error,
-    });
   }
-}
 
 /**
  * Controller for having a conversation based on an image description.
