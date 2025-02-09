@@ -3,7 +3,9 @@
 import fastify from 'fastify';
 import cors from '@fastify/cors'; // Import the CORS plugin
 import admin from 'firebase-admin';
+import multipart from '@fastify/multipart';
 import authRoutes from './src/api/routes/authRoutes';
+import imageProcessingRoutes from "./src/api/routes/imageProcessingRoutes";
 import serviceAccount from "./serviceAccountKey.json"; // Adjust the path as needed
 import dotenv from 'dotenv';
 
@@ -23,7 +25,9 @@ server.register(cors, {
 });
 
 // Register authentication routes
+server.register(multipart);
 server.register(authRoutes);
+server.register(imageProcessingRoutes);
 
 const startServer = async () => {
     try {
