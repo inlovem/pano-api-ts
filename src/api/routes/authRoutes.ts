@@ -2,12 +2,14 @@
 
 import { FastifyInstance } from 'fastify';
 import {
+
   registerController,
   loginController,
   updateProfileController,
   googleLoginController,
   appleLoginController,
   facebookLoginController,
+
 } from '../controllers/authController';
 
 import {
@@ -23,6 +25,7 @@ import {
     * @param fastify Fastify instance
     */
 async function authRoutes(fastify: FastifyInstance) {
+
 
   fastify.route({
     method: 'POST',
@@ -66,6 +69,7 @@ async function authRoutes(fastify: FastifyInstance) {
     schema: SocialLoginSchema,
     handler: facebookLoginController,
   });
+
 }
 
 export default authRoutes;

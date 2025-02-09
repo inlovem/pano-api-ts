@@ -18,11 +18,15 @@
     "@fastify/type-provider-typebox": "^5.1.0",
     "@sinclair/typebox": "^0.34.16",
     "axios": "^1.7.9",
+    "@fastify/multipart": "^9.0.3",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.1",
-    "firebase-admin": "^13.1.0"
+    "firebase-admin": "^13.1.0",
+    "lodash": "^4.17.21",
+    "openai": "^4.83.0"
   },
   "devDependencies": {
+    "@types/lodash": "^4.17.15",
     "@types/node": "^22.13.1",
     "http-server": "^14.1.1",
     "typescript": "^5.7.3"
