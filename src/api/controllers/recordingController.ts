@@ -29,7 +29,7 @@ export async function updateRecordingController(
     const { recordingId } = request.params;
     const { data } = request.body;
     const { id, type, attributes = {} } = data || {};
-    const uid = request.user.uid as string;
+    const uid = request.user.uid
 
 
   if (type !== 'recording' || String(id) !== String(recordingId)) {

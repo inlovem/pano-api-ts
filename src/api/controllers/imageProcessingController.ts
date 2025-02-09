@@ -1,164 +1,168 @@
 // src/api/controllers/imageProcessingController.ts
+
 import { FastifyRequest, FastifyReply } from 'fastify';
 import OpenAI from 'openai';
-
-/**
- * Request body for generating an image description.
- */
-interface ImageDescriptionRequestBody {
-    // A base64-encoded image string (e.g., "data:image/png;base64,....")
-    image_base64: string;
-}
-
-/**
- * Request body for the conversational route.
- */
-interface ImageConversationRequestBody {
-    // The full image description (generated earlier).
-    imageDescription: string;
-    // The user's follow-up question.
-    question: string;
-}
+import { streamToBuffer } from '../utils/streamToBuffer';
+import fs from 'fs';
+import { waitOnRunCompletion } from '../utils/waitOnRunComplete';
 
 /**
  * Controller for generating a high-detail image description.
  *
- * This controller accepts an uploaded image file, converts it into a data URL,
- * sends it to OpenAI with a multimodal prompt (text + image URL), and returns the
- * generated description.
- *
- * Note: This function assumes that the Fastify multipart plugin is registered.
+ * Supports file data from either in-memory (e.g. via fastify-multipart) or disk (e.g. via multer).
  */
 export async function generateImageDescriptionController(
-    request: FastifyRequest,
-    reply: FastifyReply
+  request: FastifyRequest,
+  reply: FastifyReply
 ) {
-    try {
-        // Use a type assertion to access the file() method (provided by fastify-multipart)
-        const data = await (request as any).file();
-        if (!data) {
-            return reply.status(400).send({ message: 'File is required.' });
-        }
+  try {
+    let data: any;
+    let fileBuffer: Buffer;
+    let mimetype: string;
 
-        /**
-         * Helper function to convert a stream to a Buffer.
-         * @param stream - The file stream from the upload.
-         * @returns A Promise that resolves to a Buffer containing the file data.
-         */
-        async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-            const chunks: Buffer[] = [];
-            return new Promise((resolve, reject) => {
-                stream.on('data', (chunk) => {
-                    // Ensure chunk is a Buffer (convert if it's a string)
-                    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-                });
-                stream.on('end', () => resolve(Buffer.concat(chunks)));
-                stream.on('error', reject);
-            });
-        }
-
-        // Read the uploaded file stream into a Buffer.
-        const fileBuffer = await streamToBuffer(data.file);
-
-        // Convert the Buffer into a base64-encoded string.
-        const base64Image = fileBuffer.toString('base64');
-
-        // Construct a data URL using the file's MIME type.
-        // For example: data:image/jpeg;base64,.....
-        const dataUrl = `data:${data.mimetype};base64,${base64Image}`;
-
-        // Initialize the OpenAI client.
-        const openai = new OpenAI();
-
-        // Call the OpenAI Chat API with a multimodal prompt that includes the data URL.
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'user',
-                    content: [
-                        { type: 'text', text: "Provide a high context description of the image?" },
-                        { type: 'image_url', image_url: { url: dataUrl } },
-                    ],
-                },
-            ],
-            store: true,
-        });
-
-        // Ensure that the API returned a valid response.
-        if (!response.choices || response.choices.length === 0) {
-            return reply.status(500).send({ message: 'No description was generated.' });
-        }
-
-        // Extract the generated image description from the response.
-        const imageDescription = response.choices[0].message.content;
-        return reply.status(200).send({ imageDescription });
-    } catch (error: any) {
-        return reply.status(500).send({
-            message: 'Error generating image description',
-            error: error.message || error,
-        });
+    if (request.fileData) {
+      data = request.fileData;
+      fileBuffer = await streamToBuffer(data.file);
+      mimetype = data.mimetype;
+    } else if (request.file) {
+      data = request.file;
+      fileBuffer = fs.readFileSync(data.path);
+      mimetype = data.mimetype;
+    } else {
+      return reply.status(400).send({ message: 'File is required.' });
     }
+    
+    const base64Image = fileBuffer.toString('base64');
+    const dataUrl = `data:${mimetype};base64,${base64Image}`;
+
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    // Send a multimodal prompt including a text prompt and the image URL.
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: "Provide a high context description of the image?" },
+            { type: 'image_url', image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+      store: true,
+    });
+
+    if (!response.choices || response.choices.length === 0) {
+      return reply.status(500).send({ message: 'No description was generated.' });
+    }
+    const imageDescription = response.choices[0].message.content;
+    return reply.status(200).send({ imageDescription });
+  } catch (error: any) {
+    console.error('Error in generateImageDescriptionController:', error);
+    return reply.status(500).send({
+      message: 'Error generating image description',
+      error: error.message || error,
+    });
+  }
 }
 
 /**
  * Controller for having a conversation based on an image description.
  *
- * This controller accepts an image description and a user's follow-up question,
- * then uses the description as context to generate a conversational response.
+ * This controller supports two modes:
+ * - If a `threadId` is provided in the request body, it uses OpenAI's beta threads API
+ *   to maintain persistent conversation context.
+ * - Otherwise, it falls back to a simple chat completion.
+ *
+ * Expected request body:
+ * {
+ *   imageDescription: string,
+ *   question: string,
+ *   threadId?: string  // optional, for persistent conversation threads
+ * }
  */
 export async function imageConversationController(
-    request: FastifyRequest<{ Body: ImageConversationRequestBody }>,
-    reply: FastifyReply
+  request: FastifyRequest<{ 
+    Body: { 
+      imageDescription: string; 
+      question: string; 
+      threadId?: string;
+    } 
+  }>,
+  reply: FastifyReply
 ) {
-    let { imageDescription, question } = request.body;
+  const { imageDescription, question, threadId } = request.body;
+  // Clean inputs by removing extra line breaks and whitespace.
+  const cleanedImageDescription = imageDescription.replace(/[\r\n]+/g, ' ').trim();
+  const cleanedQuestion = question.replace(/[\r\n]+/g, ' ').trim();
 
-    if (!imageDescription || !question) {
-        return reply.status(400).send({
-            message: 'Both "imageDescription" and "question" fields are required.',
-        });
-    }
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const assistantId = process.env.OPENAI_ASSISTANT_ID as string;
 
-    // Clean the input by removing extra line breaks and whitespace.
-    imageDescription = imageDescription.replace(/[\r\n]+/g, ' ').trim();
-    question = question.replace(/[\r\n]+/g, ' ').trim();
+    // --- Thread-Based Conversation Mode ---
+    if (threadId) {
 
-    try {
-        // Initialize the OpenAI client.
-        const openai = new OpenAI();
-
-        // Build the conversation context:
-        // 1. A system message with the image description.
-        // 2. A user message with the follow-up question.
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: `Image description: ${imageDescription}`,
-                },
-                {
-                    role: 'user',
-                    content: question,
-                },
-            ],
-            store: true,
-        });
-
-        if (!response.choices || response.choices.length === 0) {
-            return reply.status(500).send({
-                message: 'No response was generated for the conversation.',
-            });
-        }
-
-        // Extract the assistant's reply from the response.
-        const answer = response.choices[0].message.content;
-
-        return reply.status(200).send({ answer });
-    } catch (error: any) {
+      const userMessage: { role: "user"; content: string } = {
+        role: "user",
+        content: cleanedQuestion,
+      };
+      await openai.beta.threads.messages.create(threadId, userMessage);
+      
+   
+      const run = await openai.beta.threads.runs.create(threadId, {
+        assistant_id: assistantId,
+        // If you need streaming, include stream: true along with other parameters.
+        // stream: true,
+      });
+      
+      // Wait until the run is complete.
+      await waitOnRunCompletion(openai, run.id, threadId);
+      
+      // Retrieve messages from the thread; assume the latest message is the assistant's reply.
+      const responseMessages = await openai.beta.threads.messages.list(threadId, { order: 'desc' });
+      if (!responseMessages.data || responseMessages.data.length === 0) {
         return reply.status(500).send({
-            message: 'Error generating conversation response',
-            error: error.message || error,
+          message: 'No response was generated in the conversation thread.',
         });
+      }
+      // Extract the assistant's reply (ensure this matches the expected format).
+      const answer = responseMessages.data[0].content;
+      return reply.status(200).send({ answer, threadId });
     }
+    // --- Simple Chat Completion Mode ---
+    else {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `Image description: ${cleanedImageDescription}`,
+          },
+          {
+            role: 'user',
+            content: cleanedQuestion,
+          },
+        ],
+        store: true,
+      });
+      
+      if (!response.choices || response.choices.length === 0) {
+        return reply.status(500).send({
+          message: 'No response was generated for the conversation.',
+        });
+      }
+      
+      const answer = response.choices[0].message.content;
+      return reply.status(200).send({ answer });
+    }
+    
+  } catch (error: any) {
+    console.error('Error in imageConversationController:', error);
+    return reply.status(500).send({
+      message: 'Error generating conversation response',
+      error: error.message || error,
+    });
+  }
 }
