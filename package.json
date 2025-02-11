@@ -25,11 +25,13 @@
     "firebase-admin": "^13.1.0",
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
+    "mime-types": "^2.1.35",
     "nodemon": "^3.1.9",
     "openai": "^4.83.0"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.15",
+    "@types/mime-types": "^2.1.4",
     "@types/node": "^22.13.1",
     "http-server": "^14.1.1",
     "typescript": "^5.7.3"

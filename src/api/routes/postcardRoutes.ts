@@ -1,17 +1,17 @@
+// src/api/routes/postcardRoutes.ts
 import { FastifyInstance } from 'fastify';
 import { authenticateUser } from '../utils/authUser';
-import { updatePostCardController} from '../controllers/postCardController';
+import { updatePostCardController } from '../controllers/postCardController';
 import { UpdatePostCardSchema } from '../schemas/postCardSchema';
 
-
 async function PostcardRoutes(fastify: FastifyInstance) {
-    fastify.route({  
+    fastify.route({
         method: 'PATCH',
         url: '/postcard/:postcardId',
         schema: UpdatePostCardSchema,
-        preHandler: [authenticateUser], 
-        handler: updatePostCardController
+        preHandler: [authenticateUser],
+        handler: updatePostCardController,
     });
 }
-export default PostcardRoutes;
 
+export default PostcardRoutes;

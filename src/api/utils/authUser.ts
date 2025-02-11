@@ -14,22 +14,18 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     reply
-      .code(401)
-      .send({ error: "Missing or invalid Authorization header" });
+        .code(401)
+        .send({ error: "Missing or invalid Authorization header" });
     return;
   }
 
   const token = authHeader.split(' ')[1];
-  const user = await verifyToken(token);
-  if (!token) {
-    return reply.status(401).send({ message: 'Token missing' });
-  }
-
-  (request as any).user = user;
 
   try {
+    // Use Firebase Admin SDK exclusively
     const decodedToken = await admin.auth().verifyIdToken(token);
     (request as any).user = { uid: decodedToken.uid };
+    // Continue with the request handling...
   } catch (error: any) {
     return reply.status(401).send({
       message: 'Invalid or expired token',

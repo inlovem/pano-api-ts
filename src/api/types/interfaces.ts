@@ -87,3 +87,17 @@ export interface IUpdatePostCardBody {
 export interface IUpdatePostCardParams {
     postCardId: string;
 }
+
+// src/interfaces/fastify-image-processing.d.ts
+
+import { ImageConversationRequest } from '../controllers/imageProcessingController';
+
+declare module 'fastify' {
+    interface FastifyRequest {
+        /**
+         * A helper property for image processing routes that holds the
+         * JSON:API–formatted image conversation request body.
+         */
+        imageConversation: ImageConversationRequest;
+    }
+}

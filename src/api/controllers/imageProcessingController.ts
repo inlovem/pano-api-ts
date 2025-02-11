@@ -1,23 +1,20 @@
 // src/api/controllers/imageProcessingController.ts
-import { FastifyRequest, FastifyReply } from 'fastify';
+import {FastifyRequest, FastifyReply} from 'fastify';
 import OpenAI from 'openai';
+import {lookup} from 'mime-types';
 
 /**
- * Request body for generating an image description.
+ * Interface for the image conversation request using JSON:API structure.
  */
-interface ImageDescriptionRequestBody {
-    // A base64-encoded image string (e.g., "data:image/png;base64,....")
-    image_base64: string;
-}
-
-/**
- * Request body for the conversational route.
- */
-interface ImageConversationRequestBody {
-    // The full image description (generated earlier).
-    imageDescription: string;
-    // The user's follow-up question.
-    question: string;
+// src/api/controllers/imageProcessingController.ts
+export interface ImageConversationRequest {
+    data: {
+        type: "imageConversation";
+        attributes: {
+            imageDescription: string;
+            question: string;
+        };
+    };
 }
 
 /**
@@ -25,7 +22,7 @@ interface ImageConversationRequestBody {
  *
  * This controller accepts an uploaded image file, converts it into a data URL,
  * sends it to OpenAI with a multimodal prompt (text + image URL), and returns the
- * generated description.
+ * generated description in a JSON:API compliant format.
  *
  * Note: This function assumes that the Fastify multipart plugin is registered.
  */
@@ -34,10 +31,10 @@ export async function generateImageDescriptionController(
     reply: FastifyReply
 ) {
     try {
-        // Use a type assertion to access the file() method (provided by fastify-multipart)
+        // Retrieve the file using Fastify multipart.
         const data = await (request as any).file();
         if (!data) {
-            return reply.status(400).send({ message: 'File is required.' });
+            return reply.status(400).send({message: 'File is required.'});
         }
 
         /**
@@ -49,27 +46,38 @@ export async function generateImageDescriptionController(
             const chunks: Buffer[] = [];
             return new Promise((resolve, reject) => {
                 stream.on('data', (chunk) => {
-                    // Ensure chunk is a Buffer (convert if it's a string)
                     chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
                 });
-                stream.on('end', () => resolve(Buffer.concat(chunks)));
-                stream.on('error', reject);
+                stream.on('end', () => {
+                    const buffer = Buffer.concat(chunks);
+                    resolve(buffer);
+                });
+                stream.on('error', (err) => {
+                    reject(err);
+                });
             });
         }
 
-        // Read the uploaded file stream into a Buffer.
+        // Convert the uploaded file stream into a Buffer.
         const fileBuffer = await streamToBuffer(data.file);
 
         // Convert the Buffer into a base64-encoded string.
         const base64Image = fileBuffer.toString('base64');
-
-        // Construct a data URL using the file's MIME type.
-        // For example: data:image/jpeg;base64,.....
-        const dataUrl = `data:${data.mimetype};base64,${base64Image}`;
-
+        // Determine the MIME type:
+        // If data.mimetype is missing or not valid, try to derive it from the filename using mime-types.
+        let fileMime = data.mimetype;
+        if (!fileMime || !fileMime.startsWith("image/")) {
+            if (data.filename) {
+                fileMime = lookup(data.filename) || '';
+            }
+        }
+        if (!fileMime || !fileMime.startsWith("image/")) {
+            return reply.status(400).send({message: 'Invalid MIME type. Only image types are supported.'});
+        }
+        // Construct a data URL using the determined MIME type.
+        const dataUrl = `data:${fileMime};base64,${base64Image}`;
         // Initialize the OpenAI client.
         const openai = new OpenAI();
-
         // Call the OpenAI Chat API with a multimodal prompt that includes the data URL.
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -77,8 +85,8 @@ export async function generateImageDescriptionController(
                 {
                     role: 'user',
                     content: [
-                        { type: 'text', text: "Provide a high context description of the image?" },
-                        { type: 'image_url', image_url: { url: dataUrl } },
+                        {type: 'text', text: "Provide a high context description of the image?"},
+                        {type: 'image_url', image_url: {url: dataUrl}},
                     ],
                 },
             ],
@@ -87,12 +95,20 @@ export async function generateImageDescriptionController(
 
         // Ensure that the API returned a valid response.
         if (!response.choices || response.choices.length === 0) {
-            return reply.status(500).send({ message: 'No description was generated.' });
+            return reply.status(500).send({message: 'No description was generated.'});
         }
 
         // Extract the generated image description from the response.
         const imageDescription = response.choices[0].message.content;
-        return reply.status(200).send({ imageDescription });
+        // Return the description in JSON:API format.
+        return reply.status(200).send({
+            data: {
+                type: "imageDescription",
+                attributes: {
+                    imageDescription: imageDescription,
+                },
+            },
+        });
     } catch (error: any) {
         return reply.status(500).send({
             message: 'Error generating image description',
@@ -104,14 +120,23 @@ export async function generateImageDescriptionController(
 /**
  * Controller for having a conversation based on an image description.
  *
- * This controller accepts an image description and a user's follow-up question,
- * then uses the description as context to generate a conversational response.
+ * This controller accepts an image description and a user's follow-up question
+ * in JSON:API format, then uses the description as context to generate a conversational response.
  */
 export async function imageConversationController(
-    request: FastifyRequest<{ Body: ImageConversationRequestBody }>,
+    request: FastifyRequest<{ Body: ImageConversationRequest }>,
     reply: FastifyReply
 ) {
-    let { imageDescription, question } = request.body;
+    // Extract the JSON:API–formatted request.
+    const {data} = request.body;
+    if (!data || data.type !== "imageConversation" || !data.attributes) {
+        return reply.status(400).send({
+            message:
+                'Invalid request format. Expected JSON:API format with data.type "imageConversation".',
+        });
+    }
+
+    const {imageDescription, question} = data.attributes;
 
     if (!imageDescription || !question) {
         return reply.status(400).send({
@@ -120,26 +145,24 @@ export async function imageConversationController(
     }
 
     // Clean the input by removing extra line breaks and whitespace.
-    imageDescription = imageDescription.replace(/[\r\n]+/g, ' ').trim();
-    question = question.replace(/[\r\n]+/g, ' ').trim();
+    const cleanedImageDescription = imageDescription.replace(/[\r\n]+/g, ' ').trim();
+    const cleanedQuestion = question.replace(/[\r\n]+/g, ' ').trim();
 
     try {
         // Initialize the OpenAI client.
         const openai = new OpenAI();
 
-        // Build the conversation context:
-        // 1. A system message with the image description.
-        // 2. A user message with the follow-up question.
+        // Build the conversation context.
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [
                 {
                     role: 'system',
-                    content: `Image description: ${imageDescription}`,
+                    content: `Image description: ${cleanedImageDescription}`,
                 },
                 {
                     role: 'user',
-                    content: question,
+                    content: cleanedQuestion,
                 },
             ],
             store: true,
@@ -151,10 +174,18 @@ export async function imageConversationController(
             });
         }
 
-        // Extract the assistant's reply from the response.
+        // Extract the assistant's reply.
         const answer = response.choices[0].message.content;
 
-        return reply.status(200).send({ answer });
+        // Return the answer in JSON:API format.
+        return reply.status(200).send({
+            data: {
+                type: "imageConversation",
+                attributes: {
+                    answer: answer,
+                },
+            },
+        });
     } catch (error: any) {
         return reply.status(500).send({
             message: 'Error generating conversation response',
