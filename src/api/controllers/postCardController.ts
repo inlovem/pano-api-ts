@@ -1,9 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import * as service from '../services/postCardService';
-import {IUpdatePostCardParams, IUpdatePostCardBody, IUser } from '../types/interfaces';
-
-
-
+import {IUpdatePostCardParams, IUpdatePostCardBody } from '../types/interfaces';
 
 export async function updatePostCardController(
     request: FastifyRequest<{

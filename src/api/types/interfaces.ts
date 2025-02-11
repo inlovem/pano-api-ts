@@ -41,8 +41,9 @@ export interface SocialLoginRequestBody {
 }
 
 export interface IUser {
+  uid: string;
   isSuperuser?: boolean;
-  uid?: string;
+  
 }
 
 export interface IUpdateRecordingBody {
@@ -86,4 +87,20 @@ export interface IUpdatePostCardBody {
 }
 export interface IUpdatePostCardParams {
     postCardId: string;
+}
+
+
+export interface ImageDescriptionRequestBody {
+  // A base64-encoded image string (e.g., "data:image/png;base64,....")
+  image_base64: string;
+}
+
+/**
+* Request body for the conversational route.
+*/
+export interface ImageConversationRequestBody {
+  // The full image description (generated earlier).
+  imageDescription: string;
+  // The user's follow-up question.
+  question: string;
 }

@@ -4,7 +4,6 @@ export const responseProperty = {
     type: 'string',
   },
 }
-
 /* Client Errors (4xx) */
 export const ERROR400 = {
   description: 'Bad Request',
