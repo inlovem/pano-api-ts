@@ -72,7 +72,7 @@ export interface IPostcard {
     recipientId?: string;
     s3Key?: string;
     transcript?: string;
-  }
+}
   
 
 export interface IUpdatePostCardBody {
