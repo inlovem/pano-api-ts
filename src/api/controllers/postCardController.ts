@@ -93,12 +93,16 @@ export async function createPostCardController(
   }
 
   try {
+    // Create the postcard and store it in both locations
     const createdPostCard = await service.createPostCard(uid, attributes);
     return reply.status(201).send({
       data: {
         id: createdPostCard.id,
         type: 'postCard',
-        attributes: createdPostCard.attributes,
+        attributes: {
+          s3Key: createdPostCard.s3Key,
+          transcript: createdPostCard.transcript,
+        },
       },
       status: 201,
     });

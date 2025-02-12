@@ -1,6 +1,7 @@
 // src/services/postcardService.ts
 import admin from '../config/firebase';
 import { IPostcard } from '../types/interfaces';
+import {v4 as uuidv4} from 'uuid';
 
 const db = admin.database();
 
@@ -73,23 +74,33 @@ export async function fetchReceivedPostCards(userId: string): Promise<IPostcard[
 /**
  * Creates a new postcard record for the given user.
  */
+/**
+ * Creates a new postcard record for the given user.
+ * Stores full postcard data under `/postcards/{postcardId}`
+ * and adds a reference to the user’s info at `/users/{userId}/userinfo/postcards/{postcardId}`.
+ */
+
 export async function createPostCard(
     userId: string,
     attributes: { s3Key?: string; transcript?: string }
-): Promise<any> {
-  // Generate a new ID (in a real application, your database might generate this)
-  const generatedId = Math.random().toString(36).substring(2, 10);
+): Promise<IPostcard> {
+  // Generate a new unique postcard ID
+  const generatedId = uuidv4();
 
-  // Construct the postcard object
-  const newPostCard = {
+  // Construct the full postcard object matching the IPostcard interface
+  const newPostCard: IPostcard = {
     id: generatedId,
-    type: 'postCard',
-    attributes,
-    userId, // Associate the postcard with the user.
+    userId,
+    s3Key: attributes.s3Key,
+    transcript: attributes.transcript,
   };
 
-  // Persist the new postcard in Firebase
+  // Save the full postcard data in the central collection
   await db.ref(`postcards/${generatedId}`).set(newPostCard);
+
+  // Instead of storing the whole postcard object in the user's info,
+  // we store just the reference (the postcard id).
+  await db.ref(`users/${userId}/postcards/${generatedId}`).set(generatedId);
 
   return newPostCard;
 }
