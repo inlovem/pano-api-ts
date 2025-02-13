@@ -1,146 +1,36 @@
 // src/api/controllers/authController.ts
-
 import { FastifyRequest, FastifyReply } from 'fastify';
-import {
-    registerUser,
-    loginUser,
-    updateUserProfile,
-    loginWithSocial
-} from '../services/authService';
-import { LoginRequestBody, RegisterRequestBody, UpdateProfileRequestBody, SocialLoginRequestBody } from '../types/interfaces';
-import * as schema from '../schemas/userSchema';
-import admin from '../config/firebase';
+import { registerUserService } from '../services/authService';
+import { IUserData } from 'src/api/types/interfaces';
+import { decodeJWT } from '../utils/authUser'; // using your authUser.ts implementation
 
+export async function registerUserController(request: FastifyRequest, reply: FastifyReply) {
+    // Decode the token and attach user info to the request.
+    await decodeJWT(request, reply);
 
+    // Retrieve the attached user info.
+    const userFromToken = (request as any).user;
 
-/**
- * Controller for registering a new user.
-    */
-export async function registerController(
-    request: FastifyRequest<{ Body: RegisterRequestBody }>,
-    reply: FastifyReply
-) {
-    const { email, password } = request.body;
-    if (!email || !password) {
-        return reply.status(400).send({ message: 'Email and password are required' });
+    if (!userFromToken) {
+        return reply.status(401).send({ error: 'Unauthorized: No user data available' });
     }
+
+    // Build the user data object according to your IUserData interface.
+    const userData: IUserData = {
+        uid: userFromToken.uid,
+        email: userFromToken.email,
+        username: userFromToken.username || '',
+        profile_picture: userFromToken.profile_picture || '',
+        phone_number: userFromToken.phone_number || '',
+        created_at: new Date().toISOString(),
+        added_to_postcards: [],
+        created_postcards: [],
+    };
+
     try {
-        const userRecord = await registerUser({ email, password });
-        return reply.status(201).send(userRecord);
+        await registerUserService(userData);
+        return reply.code(201).send({ message: 'User registered successfully' });
     } catch (error: any) {
-        return reply.status(500).send({ message: 'Error registering user', error: error.message || error });
-    }
-}
-
-/**
- * Controller for logging in an existing user using email/password.
- */
-export async function loginController(
-    request: FastifyRequest<{ Body: LoginRequestBody }>,
-    reply: FastifyReply
-) {
-    const { email, password } = request.body;
-    if (!email || !password) {
-        return reply.status(400).send({ message: 'Email and password are required' });
-    }
-    try {
-        const loginResult = await loginUser({ email, password });
-        return reply.status(200).send(loginResult);
-    } catch (error: any) {
-        return reply.status(500).send({ message: 'Error logging in user', error: error.message || error });
-    }
-}
-
-/**
- * Controller for updating the user's profile.
- * Requires a valid Firebase ID token in the Authorization header.
- */
-export async function updateProfileController(
-    request: FastifyRequest<{ Body: UpdateProfileRequestBody }>,
-    reply: FastifyReply
-) {
-    const authHeader = request.headers.authorization;
-    if (!authHeader) {
-        return reply.status(401).send({ message: 'Authorization header missing' });
-    }
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-        return reply.status(401).send({ message: 'Token missing' });
-    }
-    let uid: string;
-    try {
-        const decodedToken = await admin.auth().verifyIdToken(token);
-        uid = decodedToken.uid;
-    } catch (error: any) {
-        return reply.status(401).send({ message: 'Invalid or expired token', error: error.message || error });
-    }
-    const { displayName, photoURL } = request.body;
-    if (!displayName && !photoURL) {
-        return reply.status(400).send({ message: 'At least one property (displayName or photoURL) must be provided for update' });
-    }
-    try {
-        const updatedUser = await updateUserProfile({ uid, displayName, photoURL });
-        return reply.status(200).send(updatedUser);
-    } catch (error: any) {
-        return reply.status(500).send({ message: 'Error updating profile', error: error.message || error });
-    }
-}
-
-
-
-/**
- * Controller for social login using Google.
- */
-export async function googleLoginController(
-    request: FastifyRequest<{ Body: SocialLoginRequestBody }>,
-    reply: FastifyReply,
-) {
-    const { token } = request.body;
-    if (!token) {
-        return reply.status(400).send({ message: 'Token is required' });
-    }
-    try {
-        const loginResult = await loginWithSocial({ token, providerId: 'google.com' });
-        return reply.status(200).send(loginResult);
-    } catch (error: any) {
-        return reply.status(500).send({ message: 'Error with Google login', error: error.message || error });
-    }
-}
-
-/**
- * Controller for social login using Apple.
- */
-export async function appleLoginController(
-    request: FastifyRequest<{ Body: SocialLoginRequestBody }>,
-    reply: FastifyReply
-) {
-    const { token } = request.body;
-    if (!token) {
-        return reply.status(400).send({ message: 'Token is required' });
-    }
-    try {
-        const loginResult = await loginWithSocial({ token, providerId: 'apple.com' });
-        return reply.status(200).send(loginResult);
-    } catch (error: any) {
-        return reply.status(500).send({ message: 'Error with Apple login', error: error.message || error });
-    }
-}
-
-/**
- * Controller for social login using Facebook.
- */
-export async function facebookLoginController(
-    request: FastifyRequest<{ Body: SocialLoginRequestBody }>,
-    reply: FastifyReply
-) {
-    const { token } = request.body;
-    if (!token) {
-        return reply.status(400).send({ message: 'Token is required' });
-    }
-    try {
-        const loginResult = await loginWithSocial({ token, providerId: 'facebook.com' });
-        return reply.status(200).send(loginResult);
-    } catch (error: any) {
-        return reply.status(500).send({ message: 'Error with Facebook login', error: error.message || error });
+        return reply.status(500).send({ error: 'Unable to register user', details: error.message });
     }
 }

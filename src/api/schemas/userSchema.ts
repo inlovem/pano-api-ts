@@ -58,12 +58,19 @@ const LoginResponseSchema = Type.Object({
 /**
  * Schema for the register endpoint.
  */
-export const RegisterSchema: FastifySchema = {
-  body: RegisterRequestBodySchema,
+export const RegisterUserSchema: FastifySchema = {
+  // No body is required because user data is extracted from the JWT
   response: {
-    201: FirebaseUserRecordSchema,
-    400: ERROR400,
-    500: ERROR500,
+    201: Type.Object({
+      message: Type.String({ default: 'User registered successfully' }),
+    }),
+    401: Type.Object({
+      error: Type.String({ default: 'Missing or invalid Authorization header' }),
+    }),
+    500: Type.Object({
+      error: Type.String(),
+      details: Type.String(),
+    }),
   },
 };
 

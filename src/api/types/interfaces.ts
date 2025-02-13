@@ -87,3 +87,14 @@ export interface IUpdatePostCardBody {
 export interface IUpdatePostCardParams {
     postCardId: string;
 }
+
+export interface IUserData {
+    uid: string;
+    username: string;
+    email: string;
+    profile_picture: string;
+    phone_number: string;
+    created_at: string;
+    added_to_postcards: string[];   // List of postcard IDs added by other users
+    created_postcards: string[];    // List of postcard IDs created by the user
+}
