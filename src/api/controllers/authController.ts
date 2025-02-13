@@ -2,13 +2,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { registerUserService } from '../services/authService';
 import { IUserData } from 'src/api/types/interfaces';
-import { decodeJWT } from '../utils/authUser'; // using your authUser.ts implementation
 
 export async function registerUserController(request: FastifyRequest, reply: FastifyReply) {
-    // Decode the token and attach user info to the request.
-    await decodeJWT(request, reply);
 
-    // Retrieve the attached user info.
     const userFromToken = (request as any).user;
 
     if (!userFromToken) {

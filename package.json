@@ -26,6 +26,7 @@
     "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^4.0.0",
     "lodash": "^4.17.21",
+    "mime-types": "^2.1.35",
     "nodemon": "^3.1.9",
     "openai": "^4.83.0"
   },
