@@ -1,12 +1,7 @@
 // src/services/recordingService.ts
 
-<<<<<<< HEAD
-import admin from '../config/firebase';
 import { IUser, IRecording } from '../types/interfaces';
-=======
 import admin from 'firebase-admin';
-import { IRecording } from '../types/interfaces';
->>>>>>> fastify-image-changes
 const db = admin.database();
 
 /**

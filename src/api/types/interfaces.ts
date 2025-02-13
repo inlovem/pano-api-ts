@@ -41,9 +41,8 @@ export interface SocialLoginRequestBody {
 }
 
 export interface IUser {
-  uid: string;
   isSuperuser?: boolean;
-  
+  uid?: string;
 }
 
 export interface IUpdateRecordingBody {
@@ -55,7 +54,7 @@ export interface IUpdateRecordingBody {
       };
     };
   }
-  
+
 export interface IUpdateRecordingParams {
     recordingId: string;
   }
@@ -68,13 +67,13 @@ export interface IRecording {
 }
 
 export interface IPostcard {
-    id?: string;        
-    userId?: string;   
+    id?: string;
+    userId?: string;
     recipientId?: string;
     s3Key?: string;
     transcript?: string;
   }
-  
+
 
 export interface IUpdatePostCardBody {
     data: {
@@ -89,18 +88,35 @@ export interface IUpdatePostCardParams {
     postCardId: string;
 }
 
-
-export interface ImageDescriptionRequestBody {
-  // A base64-encoded image string (e.g., "data:image/png;base64,....")
-  image_base64: string;
+export interface IUserData {
+    uid: string;
+    username: string;
+    email: string;
+    profile_picture: string;
+    phone_number: string;
+    created_at: string;
+    added_to_postcards: string[];   // List of postcard IDs added by other users
+    created_postcards: string[];    // List of postcard IDs created by the user
 }
 
-/**
-* Request body for the conversational route.
-*/
-export interface ImageConversationRequestBody {
-  // The full image description (generated earlier).
-  imageDescription: string;
-  // The user's follow-up question.
-  question: string;
+export interface IndexedImage {
+    resource_url: string;
+    conversation_id?: string; // Firestore conversation reference
+    audio_id?: string;
+    message_reference?: string;
+}
+
+export interface IndexedConversation {
+    reference: string;       // Firestore document reference (e.g., "conversations/conv_789")
+    messages: string[];      // Array of message IDs
+}
+
+// Example: a user lookup index for images and conversations
+export interface UserIndex {
+    images?: {
+        [imageId: string]: IndexedImage;
+    };
+    conversations?: {
+        [conversationId: string]: IndexedConversation;
+    };
 }
