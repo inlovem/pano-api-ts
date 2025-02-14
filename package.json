@@ -19,6 +19,7 @@
     "@fastify/type-provider-typebox": "^5.1.0",
     "@sinclair/typebox": "^0.34.16",
     "@types/jsonwebtoken": "^9.0.8",
+    "@types/streamifier": "^0.1.2",
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.1",
@@ -28,7 +29,8 @@
     "jwt-decode": "^4.0.0",
     "lodash": "^4.17.21",
     "nodemon": "^3.1.9",
-    "openai": "^4.83.0"
+    "openai": "^4.83.0",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.15",
