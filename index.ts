@@ -8,6 +8,7 @@ import multipart from '@fastify/multipart';
 import authRoutes from './src/api/routes/authRoutes';
 import imageProcessingRoutes from "./src/api/routes/imageProcessingRoutes";
 import serviceAccount from "./serviceAccountKey.json"; // Adjust the path as needed
+import giftRoutes from 'src/api/routes/giftRoutes';
 
 import recordingRoutes from './src/api/routes/recordingRoutes';
 import PostcardRoutes from "./src/api/routes/postcardRoutes";
@@ -34,6 +35,8 @@ server.register(authRoutes);
 server.register(PostcardRoutes);
 server.register(recordingRoutes); 
 server.register(imageProcessingRoutes);
+server.register(giftRoutes);
+
 
 
 const startServer = async () => {

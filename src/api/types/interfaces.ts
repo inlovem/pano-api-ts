@@ -135,3 +135,16 @@ export interface User {
 }
 
 
+
+export interface sendGiftBody {
+    recipientId: string;
+    name : string;
+    email : string;
+    phone : string;
+    message : string;
+    imageId : string;
+    giftId : string;
+    audioId : string;
+}
+
+
