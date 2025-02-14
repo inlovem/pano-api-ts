@@ -23,10 +23,14 @@ export async function sendGiftService(userId: string, giftBody: sendGiftBody) {
     return { id: giftRef.id, ...giftSnapshot.data() };
   }
   export async function getSentGiftsService(userId: string) {
+
+
+    const userEmail = (await admin.auth().getUser(userId)).email;
+
     const sentGiftsSnapshot = await admin
       .firestore()
       .collection('gifts')
-      .where('senderId', '==', userId)
+      .where('email', '==', userEmail)
       .get();
   
     // Map Firestore documents to a usable array and reconstruct storage paths if needed
