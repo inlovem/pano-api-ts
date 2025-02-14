@@ -14,6 +14,7 @@ const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY as st
 import recordingRoutes from './src/api/routes/recordingRoutes';
 import PostcardRoutes from "./src/api/routes/postcardRoutes";
 import giftRoutes from './src/api/routes/giftRoutes';
+import audioRoutes from './src/api/routes/audioRoutes';
 
 
 
@@ -38,7 +39,7 @@ server.register(PostcardRoutes);
 server.register(recordingRoutes); 
 server.register(imageProcessingRoutes);
 server.register(giftRoutes);
-
+server.register(audioRoutes);
 
 
 const startServer = async () => {

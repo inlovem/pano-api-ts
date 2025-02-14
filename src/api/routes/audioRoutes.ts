@@ -4,7 +4,7 @@ import * as audio from '../controllers/audioController';
 
 
 
-async function giftRoutes(fastify: FastifyInstance) {
+async function audioRoutes(fastify: FastifyInstance) {
     fastify.route({  
         method: 'POST',
         url: '/audio/tts',
@@ -16,5 +16,5 @@ async function giftRoutes(fastify: FastifyInstance) {
 }
 
 
-export default giftRoutes;
+export default audioRoutes;
 
