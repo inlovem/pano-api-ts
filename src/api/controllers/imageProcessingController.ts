@@ -59,7 +59,7 @@ export async function generateImageDescriptionController(
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Provide a high context description of the image?' },
+            { type: 'text', text: 'You are an assistant that looks at the image and wants to help a person tell theor stry about the image.  You are curious and kind.' },
             { type: 'image_url', image_url: { url: dataUrl } },
           ],
         },
