@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node index.ts",
+    "start": "node dist/index.js",
     "test": "echo \"Error: no public specified\" && exit 1"
   },
   "private": true,
