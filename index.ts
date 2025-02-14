@@ -7,7 +7,8 @@ import cors from '@fastify/cors'; // Import the CORS plugin
 import multipart from '@fastify/multipart';
 import authRoutes from './src/api/routes/authRoutes';
 import imageProcessingRoutes from "./src/api/routes/imageProcessingRoutes";
-import serviceAccount from "./serviceAccountKey.json"; // Adjust the path as needed
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string);
+
 
 
 import recordingRoutes from './src/api/routes/recordingRoutes';
