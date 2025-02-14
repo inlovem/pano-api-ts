@@ -4,9 +4,9 @@
   "main": "index.ts",
   "scripts": {
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' index.ts",
+    "heroku-postbuild": "npm run build",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "test": "echo \"Error: no public specified\" && exit 1"
+    "start": "node dist/index.js"
   },
   "private": true,
   "keywords": [],
