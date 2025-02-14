@@ -74,7 +74,11 @@ export async function generateImageDescriptionController(
 
     const imageDescription = response.choices[0].message.content;
     console.log('Generated image description:', imageDescription);
-    return reply.status(200).send({ imageDescription });
+    return reply.status(200).send({
+        imageId,         // The unique image ID
+        storagePath,     // The path where image is stored
+        imageDescription // The LLM-generated description
+      });
 
   } catch (error: any) {
     console.error('Error in generateImageDescriptionController:', error);
@@ -85,99 +89,132 @@ export async function generateImageDescriptionController(
   }
 }
 
-/**
- * Controller for having a conversation based on an image description.
- * The user supplies text: { imageDescription, question, threadId? }
- */
 export async function imageConversationController(
-  request: FastifyRequest<{
-    Body: {
-      imageDescription: string;
-      question: string;
-      threadId?: string;
-    };
-  }>,
-  reply: FastifyReply
-) {
-  const { imageDescription, question, threadId } = request.body;
-  const cleanedImageDescription = imageDescription.replace(/[\r\n]+/g, ' ').trim();
-  const cleanedQuestion = question.replace(/[\r\n]+/g, ' ').trim();
-
-  try {
-    
-    const userId = (request as any).user.uid as string;
-
-    // Use your desired OpenAI model & calls
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const assistantId = process.env.OPENAI_ASSISTANT_ID as string;
-
-    // --- Thread-Based Conversation Mode ---
-    if (threadId) {
-      // 1) Add a user message to the thread
-      const userMessage = { role: 'user' as const, content: cleanedQuestion };
-      await openai.beta.threads.messages.create(threadId, userMessage);
-
-      // 2) Start a new 'run' using your assistant ID
-      const run = await openai.beta.threads.runs.create(threadId, {
-        assistant_id: assistantId,
-      });
-
-      // 3) Wait for run completion
-      await waitOnRunCompletion(openai, run.id, threadId);
-
-      // 4) Retrieve the updated thread messages (descending order)
-      const responseMessages = await openai.beta.threads.messages.list(threadId, { order: 'desc' });
-      if (!responseMessages.data?.length) {
-        return reply.status(500).send({ message: 'No response was generated in the conversation thread.' });
+    request: FastifyRequest<{
+      Body: {
+        data: {
+          type: string;
+          attributes: {
+            imageDescription: string;
+            audioTranscript: string;
+            question: string;
+            threadId?: string;
+          };
+        };
+      };
+    }>,
+    reply: FastifyReply
+  ) {
+    try {
+      const {
+        data: {
+          attributes: { imageDescription, audioTranscript, question, threadId },
+        },
+      } = request.body;
+  
+      console.log("User question:", question);
+      console.log("Image description:", imageDescription);
+      console.log("Audio transcript:", audioTranscript);
+  
+      const userId = (request as any).user.uid as string;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const assistantId = process.env.OPENAI_ASSISTANT_ID as string;
+  
+      // --- Thread-Based Conversation Mode ---
+      if (threadId) {
+        const userMessage = {
+          role: 'user' as const,
+          content: `CONTEXT:\nImage Description: ${imageDescription}\nAudio Transcript: ${audioTranscript}\n\nQUESTION: ${question}`,
+        };
+        await openai.beta.threads.messages.create(threadId, userMessage);
+  
+        const run = await openai.beta.threads.runs.create(threadId, {
+          assistant_id: assistantId,
+        });
+  
+        await waitOnRunCompletion(openai, run.id, threadId);
+  
+        const responseMessages = await openai.beta.threads.messages.list(threadId, {
+          order: 'desc',
+        });
+  
+        if (!responseMessages.data?.length) {
+          return reply
+            .status(500)
+            .send({ message: 'No response was generated in the conversation thread.' });
+        }
+  
+        const rawAnswer = responseMessages.data[0].content;
+        const answerStr = Array.isArray(rawAnswer) ? rawAnswer.join(' ') : rawAnswer ?? '';
+  
+        await storeConversationData(userId, threadId, {
+          reference: `conversations/${threadId}`,
+          messages: [question, answerStr],
+        });
+  
+        // Return response wrapped in a "data" object
+        return reply.status(200).send({
+          data: {
+            type: "imageConversation",
+            attributes: {
+              answer: answerStr,
+            },
+          },
+        });
       }
-
-      // The newest assistant message is the reply
-      const rawAnswer = responseMessages.data[0].content;
-      const answerStr = Array.isArray(rawAnswer) ? rawAnswer.join(' ') : (rawAnswer ?? '');
-
-      // Store conversation data
-      await storeConversationData(userId, threadId, {
-        reference: `conversations/${threadId}`,
-        messages: [cleanedQuestion, answerStr],
-      });
-
-      return reply.status(200).send({ answer: answerStr, threadId });
-    }
-
-    // --- Simple Chat Completion Mode ---
-    else {
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: `Image description: ${cleanedImageDescription}` },
-          { role: 'user', content: cleanedQuestion },
-        ],
-        store: true,
-      });
-
-      if (!response.choices?.length) {
-        return reply.status(500).send({ message: 'No response was generated for the conversation.' });
+  
+      // --- Simple Chat Completion Mode ---
+      else {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini', // or 'gpt-4'
+          messages: [
+            {
+              role: 'system',
+              content:
+                `You have two pieces of context:\n` +
+                `Image Description: ${imageDescription}\n` +
+                `Audio Transcript: ${audioTranscript}\n` +
+                `Respond to user queries using both.`,
+            },
+            { role: 'user', content: question },
+          ],
+          store: true,
+        });
+  
+        if (!response.choices?.length) {
+          return reply
+            .status(500)
+            .send({ message: 'No response was generated for the conversation.' });
+        }
+  
+        const rawAnswerSimple = response.choices[0].message.content;
+        const answerStrSimple = Array.isArray(rawAnswerSimple)
+          ? rawAnswerSimple.join(' ')
+          : rawAnswerSimple ?? '';
+  
+        const conversationId = Date.now().toString();
+        await storeConversationData(userId, conversationId, {
+          reference: `conversations/${conversationId}`,
+          messages: [question, answerStrSimple],
+        });
+  
+        // Return response wrapped in a "data" object
+        return reply.status(200).send({
+          data: {
+            type: "imageConversation",
+            attributes: {
+              answer: answerStrSimple,
+            },
+          },
+        });
       }
-
-      const rawAnswerSimple = response.choices[0].message.content;
-      const answerStrSimple = Array.isArray(rawAnswerSimple)
-        ? rawAnswerSimple.join(' ')
-        : (rawAnswerSimple ?? '');
-
-      // Generate a new conversation ID
-      const conversationId = Date.now().toString();
-      await storeConversationData(userId, conversationId, {
-        reference: `conversations/${conversationId}`,
-        messages: [cleanedQuestion, answerStrSimple],
+    } catch (error: any) {
+      console.error('Error in imageConversationController:', error);
+      return reply.status(500).send({
+        message: 'Error generating conversation response',
+        error: error.message || error,
       });
-
-      return reply.status(200).send({ answer: answerStrSimple });
     }
-  } catch (error: any) {
-    console.error('Error in imageConversationController:', error);
-    return reply.status(500).send({
-      message: 'Error generating conversation response',
-      error: error.message || error,
-    });
   }
-}
+  
+

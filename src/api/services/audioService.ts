@@ -1,6 +1,7 @@
 import admin from '../config/firebase';
 import FileType from 'file-type';
-import streamifier from 'streamifier';
+import fs from 'fs';
+import path from 'path';
 import OpenAI from 'openai';
 
 export async function processAudioTranscription(
@@ -8,45 +9,49 @@ export async function processAudioTranscription(
   fileBuffer: Buffer,
   defaultMimeType: string
 ) {
-
+  // 1) Determine the correct MIME type
   const fileTypeResult = await FileType.fromBuffer(fileBuffer);
   const mimetype = fileTypeResult?.mime || defaultMimeType || 'application/octet-stream';
 
-  // Generate a unique audio ID and define the Firebase Storage path
+  // 2) Generate a unique audio ID and define the Firebase Storage path
   const audioId = Date.now().toString();
   const storagePath = `recordings/${userId}/${audioId}`;
   const bucket = admin.storage().bucket();
   const savedFile = bucket.file(storagePath);
 
-    // Upload the buffer to Firebase Storage
+  // 3) Upload to Firebase Storage
   await savedFile.save(fileBuffer, {
     metadata: { contentType: mimetype },
   });
   console.log('Uploaded audio file to Storage at:', storagePath);
 
-  // Convert the buffer back into a stream for transcription
-  const audioStream = streamifier.createReadStream(fileBuffer);
+  // 4) Write buffer to a temp file on your server (e.g., /tmp for ephemeral usage)
+  const tempFilePath = path.join('/tmp', `audio_${audioId}.wav`);
+  await fs.promises.writeFile(tempFilePath, fileBuffer);
 
-  // Instantiate OpenAI client using your existing style
+  // 5) Create a standard fs read stream
+  const readStream = fs.createReadStream(tempFilePath);
+
+  // 6) Instantiate OpenAI client
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
 
-  // Invoke OpenAI's Whisper transcription API using a similar pattern as your image controller
+  // 7) Call Whisper transcription
   const transcriptionResponse = await openai.audio.transcriptions.create({
     model: 'whisper-1',
-    file: audioStream as unknown as File, // Adjust type as necessary per SDK requirements
+    file: readStream, // <--- Pass the read stream
   });
+
   const transcriptionText = transcriptionResponse.text;
   console.log('Transcription text:', transcriptionText);
 
-  // Save audio metadata and transcription in Firestore
+  // 8) Save metadata + transcription in Firestore
   const audioData = {
     audioPath: storagePath,
     transcription: transcriptionText,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
-
   const audioRef = await admin.firestore().collection('audio').add(audioData);
   const audioSnapshot = await audioRef.get();
 
