@@ -120,3 +120,18 @@ export interface UserIndex {
         [conversationId: string]: IndexedConversation;
     };
 }
+
+
+
+export interface User {
+    uid: string;
+    email: string;
+    email_verified: boolean;
+    displayName: string;
+    photoURL: string;
+    providerId: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+

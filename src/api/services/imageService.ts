@@ -63,28 +63,6 @@ export interface IndexedConversation {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Stores image information in the Firebase Realtime Database according to the defined schema.
- *
- * Indexed under:
- *   /users/{userId}/images/{imageId}
- *
- * @param userId - The Firebase Auth UID of the user.
- * @param imageId - The unique identifier for the image.
- * @param imageData - The image data to store (must conform to StoreImageDataInput).
- */
-export async function storeImageData(
-    userId: string,
-    imageId: string,
-    imageData: StoreImageDataInput
-): Promise<void> {
-  try {
-    await admin.database().ref(`/users/${userId}/images/${imageId}`).set(imageData);
-  } catch (error: any) {
-    throw new Error(`Error storing image data: ${error.message || error}`);
-  }
-}
-
-/**
  * Stores conversation information in the Firebase Realtime Database according to the defined schema.
  *
  * Indexed under:
@@ -100,8 +78,34 @@ export async function storeConversationData(
     conversationData: IndexedConversation
 ): Promise<void> {
   try {
+    console.log('Storing conversation data:', conversationData);
     await admin.database().ref(`/users/${userId}/conversations/${conversationId}`).set(conversationData);
   } catch (error: any) {
     throw new Error(`Error storing conversation data: ${error.message || error}`);
   }
+}
+
+
+
+export async function storeImageData(
+  userId: string,
+  imageId: string,
+  imageData: IndexedImage
+): Promise<void> {
+  try {
+    console.log('Storing image data:', imageData);
+    await admin
+      .database()
+      .ref(`/users/${userId}/images/${imageId}`)
+      .set(imageData);
+  } catch (error: any) {
+    throw new Error(`Error storing image data: ${error.message || error}`);
+  }
+}
+
+export async function getImageBuffer(storagePath: string): Promise<Buffer> {
+  const bucket = admin.storage().bucket();
+  const file = bucket.file(storagePath);
+  const [buffer] = await file.download();
+  return buffer;
 }
