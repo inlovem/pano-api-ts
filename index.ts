@@ -35,6 +35,8 @@ server.register(PostcardRoutes);
 server.register(recordingRoutes);
 server.register(imageProcessingRoutes);
 server.register(giftRoutes);
+server.register(audioRoutes);
+
 
 const startServer = async () => {
   try {
