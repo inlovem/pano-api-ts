@@ -141,7 +141,7 @@ export interface sendGiftBody {
     name : string;
     email : string;
     phone : string;
-    message : string;
+    message?: string | null;
     imageId : string;
     giftId : string;
     audioId : string;
