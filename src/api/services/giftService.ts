@@ -17,7 +17,8 @@ export async function sendGiftService(userId: string, giftBody: sendGiftBody) {
       phone: giftBody.phone,
       message: giftBody.message || "", // Keep message if text exists
       imagePath,
-      audioPath: giftBody.audioId ? audioPath : null, // Store audioPath only if audio exists
+      audioPath,
+      // audioPath: giftBody.audioId ? audioPath : null, // Store audioPath only if audio exists
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     

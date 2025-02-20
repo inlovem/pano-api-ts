@@ -13,8 +13,11 @@ export async function processAudioTranscription(
   const fileTypeResult = await FileType.fromBuffer(fileBuffer);
   const mimetype = fileTypeResult?.mime || defaultMimeType || 'application/octet-stream';
 
+  const audioDocRef = admin.firestore().collection('audio').doc();
+  const audioId = audioDocRef.id; // Use this ID for both Storage and Firestore
+
   // 2) Generate a unique audio ID and define the Firebase Storage path
-  const audioId = Date.now().toString();
+  // const audioId = Date.now().toString();
   const storagePath = `recordings/${userId}/${audioId}`;
   const bucket = admin.storage().bucket();
   const savedFile = bucket.file(storagePath);
@@ -23,7 +26,6 @@ export async function processAudioTranscription(
   await savedFile.save(fileBuffer, {
     metadata: { contentType: mimetype },
   });
-  console.log('Uploaded audio file to Storage at:', storagePath);
 
   // 4) Write buffer to a temp file on your server (e.g., /tmp for ephemeral usage)
   const tempFilePath = path.join('/tmp', `audio_${audioId}.wav`);
@@ -44,7 +46,6 @@ export async function processAudioTranscription(
   });
 
   const transcriptionText = transcriptionResponse.text;
-  console.log('Transcription text:', transcriptionText);
 
   // 8) Save metadata + transcription in Firestore
   const audioData = {
@@ -55,5 +56,8 @@ export async function processAudioTranscription(
   const audioRef = await admin.firestore().collection('audio').add(audioData);
   const audioSnapshot = await audioRef.get();
 
-  return { id: audioRef.id, ...audioSnapshot.data() };
+
+  await audioDocRef.set(audioData);
+
+  return { id: audioDocRef.id, ...audioData };
 }
