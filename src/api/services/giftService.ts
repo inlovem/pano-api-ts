@@ -11,6 +11,7 @@ export async function sendGiftService(userId: string, giftBody: sendGiftBody) {
   
 
     const giftData = {
+      recipientId: giftBody.recipientId,
       senderId: userId,
       name: giftBody.name,
       email: giftBody.email,
@@ -62,22 +63,27 @@ export async function sendGiftService(userId: string, giftBody: sendGiftBody) {
   
   
   // Service: Query all gifts a particular user has received
-  export async function getReceivedGiftsService(userId: string) {
+  export async function getReceivedGiftsService(userId: string, userEmail: string) {
     const receivedGiftsSnapshot = await admin
       .firestore()
       .collection('gifts')
-      .where('recipientId', '==', userId)
+      .where('recipientId', '==', userEmail)
       .get();
+
+    const receivedGiftsData = await Promise.all(
+      receivedGiftsSnapshot.docs.map(async (doc) => {
+        const data = doc.data();
+        const imageUrl = await getDownloadURL(data.imagePath);
+        const audioUrl = data.audioPath ? await getDownloadURL(data.audioPath) : '';
   
-    const receivedGiftsData = receivedGiftsSnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        // Reconstruct storage paths for consistency if not stored:
-        // imagePath: `images/${data.senderId}/${data.imageId}`,
-        // audioPath: `recordings/${data.senderId}/${data.audioId}`,
-      };
-    });
+        return {
+          id: doc.id,
+          ...data,
+          imageUrl,
+          audioUrl,
+        };
+      })
+    );
+    
     return receivedGiftsData;
   }
