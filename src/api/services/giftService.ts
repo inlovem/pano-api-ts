@@ -20,7 +20,7 @@ export async function sendGiftService(userId: string, giftBody: sendGiftBody) {
       imagePath,
       audioPath,
       // audioPath: giftBody.audioId ? audioPath : null, // Store audioPath only if audio exists
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: new Date().toISOString(),
     };
     
   
