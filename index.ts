@@ -10,6 +10,7 @@ import imageProcessingRoutes from './src/api/routes/imageProcessingRoutes';
 import recordingRoutes from './src/api/routes/recordingRoutes';
 import PostcardRoutes from './src/api/routes/postcardRoutes';
 import giftRoutes from './src/api/routes/giftRoutes';
+import audioRoutes from './src/api/routes/audioRoutes';
 
 // If you are using local serviceAccountKey.json for dev,
 // import it here. Otherwise, rely on environment variables in production.
@@ -35,6 +36,7 @@ server.register(PostcardRoutes);
 server.register(recordingRoutes);
 server.register(imageProcessingRoutes);
 server.register(giftRoutes);
+server.register(audioRoutes);
 
 const startServer = async () => {
   try {
