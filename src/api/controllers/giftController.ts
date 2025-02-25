@@ -34,9 +34,10 @@ export async function getSentGiftsController(
     reply: FastifyReply
   ) {
     const userId = (request as any).user.uid as string;
+    const userEmail = (await admin.auth().getUser(userId)).email || '';
   
     try {
-      const gifts = await giftService.getReceivedGiftsService(userId);
+      const gifts = await giftService.getReceivedGiftsService(userId, userEmail);
       return reply.status(200).send(gifts);
     } catch (error: any) {
       return reply
