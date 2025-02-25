@@ -13,11 +13,13 @@ export async function processAudioTranscription(
   const fileTypeResult = await FileType.fromBuffer(fileBuffer);
   const mimetype = fileTypeResult?.mime || defaultMimeType || 'application/octet-stream';
 
+
   const audioDocRef = admin.firestore().collection('audio').doc();
   const audioId = audioDocRef.id; // Use this ID for both Storage and Firestore
 
   // 2) Generate a unique audio ID and define the Firebase Storage path
   // const audioId = Date.now().toString();
+
   const storagePath = `recordings/${userId}/${audioId}`;
   const bucket = admin.storage().bucket();
   const savedFile = bucket.file(storagePath);
@@ -31,8 +33,10 @@ export async function processAudioTranscription(
   const tempFilePath = path.join('/tmp', `audio_${audioId}.wav`);
   await fs.promises.writeFile(tempFilePath, fileBuffer);
 
+
   // 5) Create a standard fs read stream
   const readStream = fs.createReadStream(tempFilePath);
+
 
   // 6) Instantiate OpenAI client
   const openai = new OpenAI({
