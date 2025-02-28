@@ -1,6 +1,9 @@
-./node_modules
-/node_modules/*
-!/node_modules/@types
+.idea/
+.idea
+node_modules/
+/node_modules
+public/
+serviceAccountKey.json
+.env
 dist
-./dist/*
 /dist
