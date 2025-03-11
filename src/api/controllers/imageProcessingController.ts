@@ -124,7 +124,7 @@ export async function imageConversationController(
       if (threadId) {
         const userMessage = {
           role: 'user' as const,
-          content: `CONTEXT:\nImage Description: ${imageDescription}\nAudio Transcript: ${audioTranscript}\n\nQUESTION: ${question}`,
+          content: `CONTEXT:\nImage Description: ${imageDescription}\nTranscript: ${audioTranscript}\n\nQUESTION: ${question}`,
         };
         await openai.beta.threads.messages.create(threadId, userMessage);
   
@@ -173,7 +173,7 @@ export async function imageConversationController(
               content:
                 `You have two pieces of context:\n` +
                 `Image Description: ${imageDescription}\n` +
-                `Audio Transcript: ${audioTranscript}\n` +
+                `Transcript: ${audioTranscript}\n` +
                 `Respond to user queries using both.`,
             },
             { role: 'user', content: question },
