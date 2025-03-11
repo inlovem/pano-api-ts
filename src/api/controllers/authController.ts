@@ -15,11 +15,26 @@ import admin from '../config/firebase';
 
 /**
  * Controller for registering a new user.
+ * Requires an email and password in the request body.
+ * Returns the user record if successful.
+ * Returns an error message if registration fails.
+ * @param request - Fastify request object
+ * @param reply - Fastify reply object
+ * @returns - User record if successful, error message if registration fails
+ * @throws - 400 if email or password is missing
+ * @throws - 500 if an error occurs during registration
+ * @example
+ * // Request body
+ * {
+ *  "email": "
+ * "password": "password"
+ * }
+ * 
     */
 export async function registerController(
     request: FastifyRequest<{ Body: RegisterRequestBody }>,
     reply: FastifyReply
-) {
+): Promise<never> {
     const { email, password } = request.body;
     if (!email || !password) {
         return reply.status(400).send({ message: 'Email and password are required' });

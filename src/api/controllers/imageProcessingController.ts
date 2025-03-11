@@ -57,17 +57,26 @@ export async function generateImageDescriptionController(
       model: 'gpt-4o-mini',
       messages: [
         {
+          role: 'system',
+          content: `You're a warm, curious conversation partner helping people capture the stories behind their cherished photos. 
+    
+    Think of yourself as part friend, part historian, and part storyteller. You notice emotional elements, ask thoughtful questions, and help draw out memories and meaning.
+    
+    Instead of just describing what you see, engage with the person about the emotional context, memories, and significance of their image. Respond as if you're sitting together looking at a photo album, with genuine interest in their story.
+    
+    Ask open-ended questions about the memory, the people, or the moment captured. Help them articulate what makes this image special enough to be gifted to someone else.
+    
+    Use a warm, conversational tone rather than analytical language.`
+        },
+        {
           role: 'user',
           content: [
-            { type: 'text', text: 'You are an assistant that looks at the image and wants to help a person tell theor stry about the image.  You are curious and kind.' },
             { type: 'image_url', image_url: { url: dataUrl } },
           ],
         },
       ],
       store: true,
     })
-
-
     if (!response.choices?.length) {
       return reply.status(500).send({ message: 'No description was generated.' });
     }
