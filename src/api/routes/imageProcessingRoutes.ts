@@ -7,7 +7,6 @@ import {
 } from '../controllers/imageProcessingController';
 import { authenticateUser, decodeJWT } from '../utils/authUser';
 import { ImageConversationSchema } from '../schemas/imageProcessingSchema';
-import { validateFileType } from '../utils/validateFileType';
 
 async function imageProcessingRoutes(fastify: FastifyInstance) {
         fastify.route({

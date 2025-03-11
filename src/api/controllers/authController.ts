@@ -34,7 +34,7 @@ import admin from '../config/firebase';
 export async function registerController(
     request: FastifyRequest<{ Body: RegisterRequestBody }>,
     reply: FastifyReply
-): Promise<never> {
+) {
     const { email, password } = request.body;
     if (!email || !password) {
         return reply.status(400).send({ message: 'Email and password are required' });
