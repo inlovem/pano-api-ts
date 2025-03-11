@@ -35,9 +35,12 @@ export async function getSentGiftsController(
   ) {
     const userId = (request as any).user.uid as string;
     const userEmail = (await admin.auth().getUser(userId)).email || '';
+    console.log('User email:', userEmail);
+    console.log('User ID:', userId);
   
     try {
       const gifts = await giftService.getReceivedGiftsService(userId, userEmail);
+      console.log('Gifts:', gifts);
       return reply.status(200).send(gifts);
     } catch (error: any) {
       return reply

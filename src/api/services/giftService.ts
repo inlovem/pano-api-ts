@@ -72,6 +72,7 @@ export async function sendGiftService(userId: string, giftBody: sendGiftBody) {
       .orderBy('createdAt', 'desc')
       .get();
 
+    console.log('Received gifts snapshot:', receivedGiftsSnapshot);
     const receivedGiftsData = await Promise.all(
       receivedGiftsSnapshot.docs.map(async (doc) => {
         const data = doc.data();
