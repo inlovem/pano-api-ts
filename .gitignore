@@ -1,0 +1,15 @@
+# Environment variables
+.env
+
+# Node modules
+node_modules/
+
+# Distribution folder
+dist/
+
+# Lock file
+package-lock.json
+yarn.lock
+
+# Service account key
+serviceAccountKey.json
