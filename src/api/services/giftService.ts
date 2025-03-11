@@ -39,6 +39,7 @@ export async function sendGiftService(userId: string, giftBody: sendGiftBody) {
       .firestore()
       .collection('gifts')
       .where('email', '==', userEmail)
+      .orderBy('createdAt', 'desc')
       .get();
   
     const sentGiftsData = await Promise.all(
@@ -68,6 +69,7 @@ export async function sendGiftService(userId: string, giftBody: sendGiftBody) {
       .firestore()
       .collection('gifts')
       .where('recipientId', '==', userEmail)
+      .orderBy('createdAt', 'desc')
       .get();
 
     const receivedGiftsData = await Promise.all(
