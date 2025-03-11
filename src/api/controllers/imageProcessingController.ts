@@ -98,132 +98,188 @@ export async function generateImageDescriptionController(
   }
 }
 
+
 export async function imageConversationController(
-    request: FastifyRequest<{
-      Body: {
-        data: {
-          type: string;
-          attributes: {
-            imageDescription: string;
-            audioTranscript: string;
-            question: string;
-            threadId?: string;
-          };
+  request: FastifyRequest<{
+    Body: {
+      data: {
+        type: string;
+        attributes: {
+          imageDescription: string;
+          audioTranscript: string;
+          question: string;
+          threadId?: string;
         };
       };
-    }>,
-    reply: FastifyReply
-  ) {
-    try {
-      const {
+    };
+  }>,
+  reply: FastifyReply
+) {
+  try {
+    const {
+      data: {
+        attributes: { imageDescription, audioTranscript, question, threadId },
+      },
+    } = request.body;
+
+    console.log("User question:", question);
+    console.log("Image description:", imageDescription);
+    console.log("Audio transcript:", audioTranscript);
+
+    const userId = (request as any).user.uid as string;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const assistantId = process.env.OPENAI_ASSISTANT_ID as string;
+
+    // --- Thread-Based Conversation Mode ---
+    if (threadId) {
+      // The client is providing a threadId, so use it directly
+      const userMessage = {
+        role: 'user' as const,
+        content: `CONTEXT:\nImage Description: ${imageDescription}\nTranscript: ${audioTranscript}\n\nQUESTION: ${question}`,
+      };
+      await openai.beta.threads.messages.create(threadId, userMessage);
+
+      const run = await openai.beta.threads.runs.create(threadId, {
+        assistant_id: assistantId,
+      });
+
+      await waitOnRunCompletion(openai, run.id, threadId);
+
+      const responseMessages = await openai.beta.threads.messages.list(threadId, {
+        order: 'desc',
+      });
+
+      if (!responseMessages.data?.length) {
+        return reply
+          .status(500)
+          .send({ message: 'No response was generated in the conversation thread.' });
+      }
+
+      const rawAnswer = responseMessages.data[0].content;
+      const answerStr = Array.isArray(rawAnswer) ? rawAnswer.map(content => {
+        if (typeof content === 'string') return content;
+        if ('text' in content && content.text && 'value' in content.text) {
+          return content.text.value;
+        }
+        return '';
+      }).join(' ') : rawAnswer ?? '';
+
+      await storeConversationData(userId, threadId, {
+        reference: `conversations/${threadId}`,
+        messages: [question, answerStr],
+      });
+
+      // Return response wrapped in a "data" object
+      return reply.status(200).send({
         data: {
-          attributes: { imageDescription, audioTranscript, question, threadId },
+          type: "imageConversation",
+          attributes: {
+            answer: answerStr,
+            threadId: threadId, // Return the threadId for future reference
+          },
         },
-      } = request.body;
-  
-      console.log("User question:", question);
-      console.log("Image description:", imageDescription);
-      console.log("Audio transcript:", audioTranscript);
-  
-      const userId = (request as any).user.uid as string;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const assistantId = process.env.OPENAI_ASSISTANT_ID as string;
-  
-      // --- Thread-Based Conversation Mode ---
-      if (threadId) {
-        const userMessage = {
-          role: 'user' as const,
-          content: `CONTEXT:\nImage Description: ${imageDescription}\nTranscript: ${audioTranscript}\n\nQUESTION: ${question}`,
-        };
-        await openai.beta.threads.messages.create(threadId, userMessage);
-  
-        const run = await openai.beta.threads.runs.create(threadId, {
-          assistant_id: assistantId,
+      });
+    } 
+    // --- Simple Chat Completion Mode (with automatic thread creation) ---
+    else {
+      // Create a "conversationId" based on the image description to link related conversations
+      // This creates a deterministic ID for conversations about the same image
+      const conversationIdentifier = createHashFromString(`${userId}-${imageDescription}`);
+      
+      // Check if we already have a thread mapping for this conversation
+      const threadRef = admin.database().ref(`/users/${userId}/thread_mappings/${conversationIdentifier}`);
+      const threadSnapshot = await threadRef.once('value');
+      let currentThreadId;
+      
+      if (threadSnapshot.exists()) {
+        // We have an existing thread for this conversation
+        currentThreadId = threadSnapshot.val().thread_id;
+        console.log('Found existing thread:', currentThreadId);
+      } else {
+        // Create a new thread
+        const thread = await openai.beta.threads.create();
+        currentThreadId = thread.id;
+        
+        // Store the mapping
+        await threadRef.set({
+          thread_id: currentThreadId,
+          created_at: admin.database.ServerValue.TIMESTAMP
         });
-  
-        await waitOnRunCompletion(openai, run.id, threadId);
-  
-        const responseMessages = await openai.beta.threads.messages.list(threadId, {
-          order: 'desc',
-        });
-  
-        if (!responseMessages.data?.length) {
-          return reply
-            .status(500)
-            .send({ message: 'No response was generated in the conversation thread.' });
-        }
-  
-        const rawAnswer = responseMessages.data[0].content;
-        const answerStr = Array.isArray(rawAnswer) ? rawAnswer.join(' ') : rawAnswer ?? '';
-  
-        await storeConversationData(userId, threadId, {
-          reference: `conversations/${threadId}`,
-          messages: [question, answerStr],
-        });
-  
-        // Return response wrapped in a "data" object
-        return reply.status(200).send({
-          data: {
-            type: "imageConversation",
-            attributes: {
-              answer: answerStr,
-            },
-          },
-        });
+        
+        console.log('Created new thread:', currentThreadId);
       }
-  
-      // --- Simple Chat Completion Mode ---
-      else {
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini', // or 'gpt-4'
-          messages: [
-            {
-              role: 'system',
-              content:
-                `You have two pieces of context:\n` +
-                `Image Description: ${imageDescription}\n` +
-                `Transcript: ${audioTranscript}\n` +
-                `Respond to user queries using both.`,
-            },
-            { role: 'user', content: question },
-          ],
-          store: true,
-        });
-  
-        if (!response.choices?.length) {
-          return reply
-            .status(500)
-            .send({ message: 'No response was generated for the conversation.' });
-        }
-  
-        const rawAnswerSimple = response.choices[0].message.content;
-        const answerStrSimple = Array.isArray(rawAnswerSimple)
-          ? rawAnswerSimple.join(' ')
-          : rawAnswerSimple ?? '';
-  
-        const conversationId = Date.now().toString();
-        await storeConversationData(userId, conversationId, {
-          reference: `conversations/${conversationId}`,
-          messages: [question, answerStrSimple],
-        });
-  
-        // Return response wrapped in a "data" object
-        return reply.status(200).send({
-          data: {
-            type: "imageConversation",
-            attributes: {
-              answer: answerStrSimple,
-            },
-          },
-        });
+      
+      // Now proceed with the thread-based approach
+      const userMessage = {
+        role: 'user' as const,
+        content: `CONTEXT:\nImage Description: ${imageDescription}\nTranscript: ${audioTranscript}\n\nQUESTION: ${question}`,
+      };
+      
+      await openai.beta.threads.messages.create(currentThreadId, userMessage);
+
+      const run = await openai.beta.threads.runs.create(currentThreadId, {
+        assistant_id: assistantId,
+      });
+
+      await waitOnRunCompletion(openai, run.id, currentThreadId);
+
+      const responseMessages = await openai.beta.threads.messages.list(currentThreadId, {
+        order: 'desc',
+      });
+
+      if (!responseMessages.data?.length) {
+        return reply
+          .status(500)
+          .send({ message: 'No response was generated in the conversation thread.' });
       }
-    } catch (error: any) {
-      console.error('Error in imageConversationController:', error);
-      return reply.status(500).send({
-        message: 'Error generating conversation response',
-        error: error.message || error,
+
+      const rawAnswer = responseMessages.data[0].content;
+      const answerStr = Array.isArray(rawAnswer) ? rawAnswer.map(content => {
+        if (typeof content === 'string') return content;
+        if ('text' in content && content.text && 'value' in content.text) {
+          return content.text.value;
+        }
+        return '';
+      }).join(' ') : rawAnswer ?? '';
+
+      await storeConversationData(userId, currentThreadId, {
+        reference: `conversations/${currentThreadId}`,
+        messages: [question, answerStr],
+      });
+
+      // Return response wrapped in a "data" object (matching original format)
+      return reply.status(200).send({
+        data: {
+          type: "imageConversation",
+          attributes: {
+            answer: answerStr,
+          },
+        },
       });
     }
+  } catch (error: any) {
+    console.error('Error in imageConversationController:', error);
+    return reply.status(500).send({
+      message: 'Error generating conversation response',
+      error: error.message || error,
+    });
+  }
+}
+
+/**
+ * Creates a simple hash from a string
+ * Used to create deterministic IDs for conversations
+ */
+function createHashFromString(str: string): string {
+  let hash = 0;
+  if (str.length === 0) return hash.toString();
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
   }
   
-
+  // Convert to a positive string and add a timestamp component for uniqueness
+  return Math.abs(hash).toString() + Date.now().toString().slice(-6);
+}

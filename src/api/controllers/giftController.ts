@@ -35,6 +35,8 @@ export async function getSentGiftsController(
   ) {
     const userId = (request as any).user.uid as string;
     const userEmail = (await admin.auth().getUser(userId)).email || '';
+    console.log('userId', userId)
+    console.log(userEmail)
   
     try {
       const gifts = await giftService.getReceivedGiftsService(userId, userEmail);
